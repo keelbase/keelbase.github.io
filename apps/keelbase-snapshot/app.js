@@ -34,7 +34,7 @@ function renderState(state) {
   const anchor = state?.latestAnchor;
   if (!snapshot) {
     snapshotEl.innerHTML = "";
-    stateTitleEl.textContent = "State: RPC ERROR";
+    stateTitleEl.innerHTML = 'State: <span class="badge badge-bad">RPC ERROR</span>';
     stateNoteEl.textContent = state?.status === "error" ? (state.error || "failed to fetch") : "Waiting for runtime data...";
     stateNoteEl.className = state?.status === "error" ? "meta status-bad" : "meta status-warn";
     anchorSummaryEl.textContent = "Latest Anchor: unavailable";
@@ -70,7 +70,7 @@ function renderLatestAnchor(anchor) {
 
 function renderSystemState(anchor, state) {
   if (!anchor) {
-    stateTitleEl.textContent = "State: NO ANCHOR YET";
+    stateTitleEl.innerHTML = 'State: <span class="badge badge-warn">NO ANCHOR YET</span>';
     stateNoteEl.textContent = "Run a cycle to begin.";
     stateNoteEl.className = "meta status-warn";
     return;
@@ -82,24 +82,24 @@ function renderSystemState(anchor, state) {
   const fallback = summary.includes("fallback");
 
   if (stale) {
-    stateTitleEl.textContent = "State: STALE";
+    stateTitleEl.innerHTML = 'State: <span class="badge badge-warn">STALE</span>';
     stateNoteEl.textContent = "No recent anchor activity in the last 10 minutes.";
     stateNoteEl.className = "meta status-warn";
     return;
   }
   if (fallback) {
-    stateTitleEl.textContent = "State: AI FALLBACK";
+    stateTitleEl.innerHTML = 'State: <span class="badge badge-warn">AI FALLBACK</span>';
     stateNoteEl.textContent = "Cycle ran with fallback behavior.";
     stateNoteEl.className = "meta status-warn";
     return;
   }
   if (outcome === "executed" || outcome === "completed" || outcome === "logged") {
-    stateTitleEl.textContent = "State: AI LIVE";
+    stateTitleEl.innerHTML = 'State: <span class="badge badge-good">AI LIVE</span>';
     stateNoteEl.textContent = "AI decisions are landing on-chain.";
     stateNoteEl.className = "meta status-good";
     return;
   }
-  stateTitleEl.textContent = "State: UNKNOWN";
+  stateTitleEl.innerHTML = 'State: <span class="badge badge-bad">UNKNOWN</span>';
   stateNoteEl.textContent = "Anchor present, manual review suggested.";
   stateNoteEl.className = "meta status-warn";
 }

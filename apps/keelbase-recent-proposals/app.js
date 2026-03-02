@@ -25,10 +25,12 @@ function renderProposals(proposals) {
     node.className = "item";
     const type = p.kind?.type || "UNKNOWN";
     const summary = p.kind?.summary || p.description || "(no summary)";
+    const status = String(p.status || "UNKNOWN");
+    const statusClass = status === "FINALIZED" ? "badge-good" : status === "PENDING" ? "badge-warn" : "badge-bad";
     node.innerHTML = `
       <div class="line1">
-        <span>#${p.id} ${escapeHtml(type)}</span>
-        <span>${escapeHtml(p.status || "UNKNOWN")}</span>
+        <span>#${p.id} <span class="badge">${escapeHtml(type)}</span></span>
+        <span class="badge ${statusClass}">${escapeHtml(status)}</span>
       </div>
       <div class="line2">${escapeHtml(summary)}</div>
     `;

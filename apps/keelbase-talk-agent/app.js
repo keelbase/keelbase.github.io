@@ -118,7 +118,7 @@ function renderChatLog() {
 
   for (const entry of chatHistory) {
     const node = document.createElement("article");
-    node.className = "chat-msg";
+    node.className = `chat-msg ${entry.role === "assistant" ? "assistant-msg" : "user-msg"}`;
     const roleTag = entry.crewRole || "liaison";
     const who = entry.role === "assistant" ? `Vessel Agent (${roleTag})` : `You (${roleTag})`;
     node.innerHTML = `
