@@ -102,12 +102,27 @@
             <select id="chatVesselSelect"></select>
           </label>
           <label>
+            Crew Role
+            <select id="chatRoleSelect">
+              <option value="liaison">Liaison (Routes)</option>
+              <option value="ceo">CEO</option>
+              <option value="ops">Ops</option>
+              <option value="marketing">Marketing</option>
+              <option value="finance">Finance</option>
+              <option value="tech">Tech</option>
+            </select>
+          </label>
+          <label>
             Message
             <textarea id="chatInput" placeholder="What should my vessel do next?" required></textarea>
           </label>
-          <button id="chatSendBtn" type="submit">Send Message</button>
+          <div class="chat-actions">
+            <button id="chatSendBtn" type="submit">Send Message</button>
+            <button id="clearMemoryBtn" type="button" class="ghost">Clear Local Memory</button>
+          </div>
         </form>
         <p id="chatStatus" class="meta"></p>
+        <p id="chatMemoryInfo" class="meta">Memory: local-only (browser) for current vessel and role.</p>
         <div id="chatLog" class="chat-log"></div>
       </section>
 

@@ -8,6 +8,7 @@ const WALLET_URL = "https://testnet.mynearwallet.com";
 const HELPER_URL = "https://helper.testnet.near.org";
 const CHAT_API_BASE_URL = "https://keelbase-platform-internal-production.up.railway.app";
 const REFRESH_MS = 30000;
+const LOCAL_MEMORY_PREFIX = "keelbase.chat.v1";
 
 const statusEl = document.getElementById("status");
 const snapshotEl = document.getElementById("snapshot");
@@ -36,9 +37,12 @@ const vesselsListEl = document.getElementById("vesselsList");
 
 const chatForm = document.getElementById("chatForm");
 const chatVesselSelect = document.getElementById("chatVesselSelect");
+const chatRoleSelect = document.getElementById("chatRoleSelect");
 const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
+const clearMemoryBtn = document.getElementById("clearMemoryBtn");
 const chatStatusEl = document.getElementById("chatStatus");
+const chatMemoryInfoEl = document.getElementById("chatMemoryInfo");
 const chatLogEl = document.getElementById("chatLog");
 const activeVesselSlugEl = document.getElementById("activeVesselSlug");
 
@@ -47,7 +51,7 @@ let connectedAccountId = "";
 let latestProposals = [];
 const vesselMetaCache = new Map();
 const vesselsBySlug = new Map();
-const chatHistory = [];
+let chatHistory = [];
 let preferredVesselSlug = "";
 
 connectWalletBtn.addEventListener("click", async () => {
@@ -75,6 +79,16 @@ disconnectWalletBtn.addEventListener("click", () => {
 
 chatVesselSelect.addEventListener("change", () => {
   syncActiveVesselLabel();
+  loadChatMemoryForCurrentSelection();
+});
+
+chatRoleSelect.addEventListener("change", () => {
+  syncActiveVesselLabel();
+  loadChatMemoryForCurrentSelection();
+});
+
+clearMemoryBtn.addEventListener("click", () => {
+  clearChatMemoryForCurrentSelection();
 });
 
 onboardForm.addEventListener("submit", async (event) => {
@@ -208,6 +222,7 @@ chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const message = chatInput.value.trim();
   const vesselSlug = chatVesselSelect.value;
+  const crewRole = chatRoleSelect.value || "liaison";
 
   if (!message) {
     return;
@@ -217,11 +232,11 @@ chatForm.addEventListener("submit", async (event) => {
     return;
   }
 
-  appendChatMessage("user", message, vesselSlug);
+  appendChatMessage("user", message, vesselSlug, crewRole);
   chatInput.value = "";
   chatSendBtn.disabled = true;
   chatSendBtn.textContent = "Sending...";
-  chatStatusEl.textContent = `Asking vessel ${vesselSlug} agent...`;
+  chatStatusEl.textContent = `Asking ${crewRole} for vessel ${vesselSlug}...`;
 
   try {
     const res = await fetch(`${CHAT_API_BASE_URL}/api/chat`, {
@@ -229,9 +244,10 @@ chatForm.addEventListener("submit", async (event) => {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         vesselSlug,
+        crewRole,
         accountId: connectedAccountId,
         message,
-        history: chatHistory.slice(-8)
+        history: chatHistory.slice(-12).map((entry) => ({ role: entry.role, content: entry.content }))
       })
     });
 
@@ -240,12 +256,16 @@ chatForm.addEventListener("submit", async (event) => {
       throw new Error(json?.error || `chat request failed (${res.status})`);
     }
 
-    appendChatMessage("assistant", String(json.reply || "No response"), vesselSlug);
+    const effectiveRole = String(json.effectiveRole || crewRole);
+    appendChatMessage("assistant", String(json.reply || "No response"), vesselSlug, effectiveRole);
     const anchored = json.anchorProposalId ? ` anchor=${json.anchorProposalId}` : "";
-    chatStatusEl.textContent = `Live reply for ${vesselSlug} (${json.source || "near_ai"}) model=${json.model || "unknown"}${anchored}`;
+    const routed = json.requestedRole && json.effectiveRole && json.requestedRole !== json.effectiveRole
+      ? ` route=${json.requestedRole}->${json.effectiveRole}`
+      : "";
+    chatStatusEl.textContent = `Live reply for ${vesselSlug} (${json.source || "near_ai"}) model=${json.model || "unknown"}${routed}${anchored}`;
     await loadData(true);
   } catch (error) {
-    appendChatMessage("assistant", `I hit an error: ${error instanceof Error ? error.message : String(error)}`, vesselSlug);
+    appendChatMessage("assistant", `I hit an error: ${error instanceof Error ? error.message : String(error)}`, vesselSlug, crewRole);
     chatStatusEl.textContent = "Chat failed. Check API/CORS config.";
   } finally {
     chatSendBtn.disabled = false;
@@ -429,6 +449,7 @@ function renderChatVesselOptions() {
     chatVesselSelect.disabled = true;
     chatSendBtn.disabled = true;
     syncActiveVesselLabel();
+    loadChatMemoryForCurrentSelection();
     return;
   }
 
@@ -453,6 +474,7 @@ function renderChatVesselOptions() {
     }
   }
   syncActiveVesselLabel();
+  loadChatMemoryForCurrentSelection();
 }
 
 function collectRegistrationAnchors(proposals) {
@@ -499,25 +521,88 @@ async function loadMetaByHash(hash) {
   }
 }
 
-function appendChatMessage(role, text, vesselSlug) {
-  chatHistory.push({ role, content: text });
-  const node = document.createElement("article");
-  node.className = "chat-msg";
-  const who = role === "assistant" ? `Vessel Agent (${vesselSlug || "none"})` : `You (${vesselSlug || "none"})`;
-  node.innerHTML = `
-    <p class="who">${escapeHtml(who)}</p>
-    <p class="text">${escapeHtml(text)}</p>
-  `;
-  chatLogEl.appendChild(node);
+function appendChatMessage(role, text, vesselSlug, crewRole) {
+  chatHistory.push({ role, content: text, vesselSlug, crewRole, ts: Date.now() });
+  chatHistory = chatHistory.slice(-60);
+  saveChatMemoryForCurrentSelection();
+  renderChatLog();
+}
+
+function renderChatLog() {
+  chatLogEl.innerHTML = "";
+  for (const entry of chatHistory) {
+    const node = document.createElement("article");
+    node.className = "chat-msg";
+    const roleTag = entry.crewRole ? `${entry.crewRole}` : "liaison";
+    const who = entry.role === "assistant" ? `Vessel Agent (${roleTag})` : `You (${roleTag})`;
+    node.innerHTML = `
+      <p class="who">${escapeHtml(who)}</p>
+      <p class="text">${escapeHtml(entry.content)}</p>
+    `;
+    chatLogEl.appendChild(node);
+  }
   chatLogEl.scrollTop = chatLogEl.scrollHeight;
+}
+
+function loadChatMemoryForCurrentSelection() {
+  const key = getChatMemoryKey(chatVesselSelect.value, chatRoleSelect.value);
+  if (!key) {
+    chatHistory = [];
+    renderChatLog();
+    chatMemoryInfoEl.textContent = "Memory: local-only (browser) for current vessel and role.";
+    return;
+  }
+  try {
+    const raw = localStorage.getItem(key);
+    const parsed = raw ? JSON.parse(raw) : [];
+    chatHistory = Array.isArray(parsed) ? parsed.filter(isValidMemoryEntry).slice(-60) : [];
+  } catch {
+    chatHistory = [];
+  }
+  renderChatLog();
+  chatMemoryInfoEl.textContent = `Memory: local browser storage key ${key}`;
+}
+
+function saveChatMemoryForCurrentSelection() {
+  const key = getChatMemoryKey(chatVesselSelect.value, chatRoleSelect.value);
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(chatHistory.slice(-60)));
+  } catch {
+    // Ignore local storage write failures in constrained browser environments.
+  }
+}
+
+function clearChatMemoryForCurrentSelection() {
+  const key = getChatMemoryKey(chatVesselSelect.value, chatRoleSelect.value);
+  if (!key) return;
+  localStorage.removeItem(key);
+  chatHistory = [];
+  renderChatLog();
+  chatStatusEl.textContent = "Local memory cleared for selected vessel and role.";
+}
+
+function getChatMemoryKey(vesselSlug, crewRole) {
+  const slug = normalizeSlug(String(vesselSlug || ""));
+  const role = String(crewRole || "").trim().toLowerCase();
+  if (!slug || !role) return "";
+  return `${LOCAL_MEMORY_PREFIX}:${slug}:${role}`;
+}
+
+function isValidMemoryEntry(entry) {
+  if (!entry || typeof entry !== "object") return false;
+  if (entry.role !== "user" && entry.role !== "assistant") return false;
+  if (typeof entry.content !== "string") return false;
+  return true;
 }
 
 function syncActiveVesselLabel() {
   const slug = chatVesselSelect.value;
+  const crewRole = chatRoleSelect.value || "liaison";
   if (slug) {
-    activeVesselSlugEl.textContent = `Active vessel: ${slug}`;
+    activeVesselSlugEl.textContent = `Active vessel: ${slug} - role: ${crewRole}`;
   } else {
-    activeVesselSlugEl.textContent = "Active vessel: none selected";
+    activeVesselSlugEl.textContent = `Active vessel: none selected - role: ${crewRole}`;
   }
 }
 
