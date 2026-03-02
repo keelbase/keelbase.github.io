@@ -319,12 +319,10 @@ function spawnKeelbaseWindows(wm){
 function spawnAllKeelbaseWindows(wm){
   const startupLayout = [
     { title: "Snapshot", url: "/apps/keelbase-snapshot/", pos: { left: 18, top: 34 } },
-    { title: "Latest AI Anchor", url: "/apps/keelbase-latest-anchor/", pos: { left: 380, top: 34 } },
-    { title: "State", url: "/apps/keelbase-state/", pos: { left: 742, top: 34 } },
-    { title: "Recent Proposals", url: "/apps/keelbase-recent-proposals/", pos: { left: 18, top: 340 } },
-    { title: "Launch New Vessel", url: "/apps/keelbase-launch-vessel/", pos: { left: 380, top: 340 } },
-    { title: "Created Vessels", url: "/apps/keelbase-created-vessels/", pos: { left: 742, top: 340 } },
-    { title: "Talk to a Vessel Agent", url: "/apps/keelbase-talk-agent/", pos: { left: 380, top: 646 } }
+    { title: "Recent Proposals", url: "/apps/keelbase-recent-proposals/", pos: { left: 380, top: 34 } },
+    { title: "Launch New Vessel", url: "/apps/keelbase-launch-vessel/", pos: { left: 742, top: 34 } },
+    { title: "Created Vessels", url: "/apps/keelbase-created-vessels/", pos: { left: 18, top: 340 } },
+    { title: "Talk to a Vessel Agent", url: "/apps/keelbase-talk-agent/", pos: { left: 380, top: 340 } }
   ];
 
   const startupWindows = startupLayout.map((entry) => {
