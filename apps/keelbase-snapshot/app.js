@@ -1,4 +1,4 @@
-import { rpcView, CEO_ACCOUNT } from "../keelbase-shared/core.js";
+import { subscribeRuntime } from "../keelbase-shared/client-runtime.js";
 
 const snapshotEl = document.getElementById("snapshot");
 const statusEl = document.getElementById("status");
@@ -25,11 +25,20 @@ function renderSnapshot(snapshot) {
   }
 }
 
-async function load() {
+function renderState(state) {
+  const snapshot = state?.snapshot;
+  if (!snapshot) {
+    snapshotEl.innerHTML = "";
+    statusEl.textContent = state?.status === "error"
+      ? `Error: ${state.error || "failed to fetch"}`
+      : "Waiting for runtime data...";
+    statusEl.className = state?.status === "error" ? "meta status-bad" : "meta status-warn";
+    return;
+  }
+
   try {
-    const snapshot = await rpcView("get_state_snapshot", { account_id: CEO_ACCOUNT });
     renderSnapshot(snapshot);
-    statusEl.textContent = `Live at ${new Date().toLocaleTimeString()}`;
+    statusEl.textContent = `Live at ${new Date(state.lastUpdated || Date.now()).toLocaleTimeString()}`;
     statusEl.className = "meta status-good";
   } catch (err) {
     statusEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
@@ -37,5 +46,4 @@ async function load() {
   }
 }
 
-await load();
-setInterval(load, 30000);
+subscribeRuntime(renderState);

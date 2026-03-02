@@ -1,10 +1,10 @@
 import {
   CHAT_API_BASE_URL,
   LOCAL_MEMORY_PREFIX,
-  loadVesselRows,
   normalizeSlug,
   escapeHtml
 } from "../keelbase-shared/core.js";
+import { requestRuntimeRefresh, subscribeRuntime } from "../keelbase-shared/client-runtime.js";
 
 const vesselSelect = document.getElementById("vesselSelect");
 const roleSelect = document.getElementById("roleSelect");
@@ -42,7 +42,11 @@ clearBtn.addEventListener("click", () => {
   loadChatMemory();
 });
 
-reloadBtn.addEventListener("click", () => loadVessels());
+reloadBtn.addEventListener("click", () => {
+  statusEl.textContent = "Loading vessel list...";
+  statusEl.className = "meta";
+  requestRuntimeRefresh();
+});
 
 chatForm.addEventListener("submit", async (event) => {
   event.preventDefault();
@@ -125,49 +129,55 @@ function renderChatLog() {
   }
 }
 
-async function loadVessels() {
-  statusEl.textContent = "Loading vessel list...";
-  statusEl.className = "meta";
+function applyVesselRows(rows) {
+  vessels = rows;
+  const current = vesselSelect.value;
 
-  try {
-    const rows = await loadVesselRows();
-    vessels = rows;
-    const current = vesselSelect.value;
-
-    vesselSelect.innerHTML = "";
-    if (rows.length === 0) {
+  vesselSelect.innerHTML = "";
+  if (rows.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No vessels available";
+    vesselSelect.appendChild(option);
+    vesselSelect.disabled = true;
+    sendBtn.disabled = true;
+  } else {
+    for (const vessel of rows) {
       const option = document.createElement("option");
-      option.value = "";
-      option.textContent = "No vessels available";
+      option.value = vessel.slug;
+      option.textContent = `${vessel.slug} (${vessel.owner})`;
       vesselSelect.appendChild(option);
-      vesselSelect.disabled = true;
-      sendBtn.disabled = true;
-      statusEl.textContent = "No registered vessels found yet.";
-      statusEl.className = "meta status-warn";
-    } else {
-      for (const vessel of rows) {
-        const option = document.createElement("option");
-        option.value = vessel.slug;
-        option.textContent = `${vessel.slug} (${vessel.owner})`;
-        vesselSelect.appendChild(option);
-      }
-      vesselSelect.disabled = false;
-      sendBtn.disabled = false;
-
-      if (current && rows.some((row) => row.slug === current)) {
-        vesselSelect.value = current;
-      }
-
-      statusEl.textContent = `Loaded ${rows.length} vessel(s).`;
-      statusEl.className = "meta status-good";
     }
-
-    syncActiveLabel();
-    loadChatMemory();
-  } catch (err) {
-    statusEl.textContent = `Failed to load vessels: ${err instanceof Error ? err.message : String(err)}`;
-    statusEl.className = "meta status-bad";
+    vesselSelect.disabled = false;
+    sendBtn.disabled = false;
+    if (current && rows.some((row) => row.slug === current)) {
+      vesselSelect.value = current;
+    }
   }
+  syncActiveLabel();
+  loadChatMemory();
+}
+
+function renderRuntimeState(state) {
+  const rows = Array.isArray(state?.vessels) ? state.vessels : [];
+  applyVesselRows(rows);
+  if (state?.status === "error") {
+    statusEl.textContent = `Failed to load vessels: ${state.error || "failed to fetch"}`;
+    statusEl.className = "meta status-bad";
+    return;
+  }
+  if (!state?.lastUpdated) {
+    statusEl.textContent = "Loading vessel list...";
+    statusEl.className = "meta";
+    return;
+  }
+  if (rows.length === 0) {
+    statusEl.textContent = "No registered vessels found yet.";
+    statusEl.className = "meta status-warn";
+    return;
+  }
+  statusEl.textContent = `Loaded ${rows.length} vessel(s).`;
+  statusEl.className = "meta status-good";
 }
 
 function syncActiveLabel() {
@@ -222,4 +232,5 @@ function isMemoryEntry(entry) {
   return true;
 }
 
-await loadVessels();
+subscribeRuntime(renderRuntimeState);
+requestRuntimeRefresh();

@@ -1,4 +1,5 @@
-import { loadVesselRows, escapeHtml } from "../keelbase-shared/core.js";
+import { escapeHtml } from "../keelbase-shared/core.js";
+import { requestRuntimeRefresh, subscribeRuntime } from "../keelbase-shared/client-runtime.js";
 
 const countEl = document.getElementById("count");
 const vesselsEl = document.getElementById("vessels");
@@ -30,21 +31,24 @@ function renderRows(rows) {
   }
 }
 
-async function load() {
-  statusEl.textContent = "Syncing...";
-  statusEl.className = "meta";
+function renderState(state) {
+  const rows = Array.isArray(state?.vessels) ? state.vessels : [];
+  renderRows(rows);
 
-  try {
-    const rows = await loadVesselRows();
-    renderRows(rows);
-    statusEl.textContent = `Live at ${new Date().toLocaleTimeString()}`;
-    statusEl.className = "meta status-good";
-  } catch (err) {
+  if (state?.status === "error") {
     countEl.textContent = "Error";
-    statusEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+    statusEl.textContent = `Error: ${state.error || "failed to fetch"}`;
     statusEl.className = "meta status-bad";
+    return;
   }
+  if (!state?.lastUpdated) {
+    statusEl.textContent = "Syncing...";
+    statusEl.className = "meta";
+    return;
+  }
+  statusEl.textContent = `Live at ${new Date(state.lastUpdated).toLocaleTimeString()}`;
+  statusEl.className = "meta status-good";
 }
 
-await load();
-setInterval(load, 30000);
+subscribeRuntime(renderState);
+requestRuntimeRefresh();

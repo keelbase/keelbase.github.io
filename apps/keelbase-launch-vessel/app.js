@@ -6,9 +6,9 @@ import {
   WALLET_URL,
   HELPER_URL,
   normalizeSlug,
-  sha256Hex,
-  rpcView
+  sha256Hex
 } from "../keelbase-shared/core.js";
+import { getRuntimeState, requestRuntimeRefresh, subscribeRuntime } from "../keelbase-shared/client-runtime.js";
 
 const CREW_ROLES = ["ceo", "liaison", "ops", "marketing", "finance", "tech"];
 
@@ -24,6 +24,7 @@ const resultBox = document.getElementById("resultBox");
 
 let wallet = null;
 let connectedAccountId = "";
+let knownVessels = [];
 
 connectWalletBtn.addEventListener("click", async () => {
   if (!wallet) {
@@ -71,8 +72,8 @@ launchForm.addEventListener("submit", async (event) => {
   resultBox.textContent = "Creating vessel registration...";
 
   try {
-    const existingMeta = await rpcView("get_active_document", { document_id: metaDocId }).catch(() => null);
-    if (existingMeta) {
+    const existing = knownVessels.find((entry) => entry.slug === slug);
+    if (existing) {
       throw new Error(`Vessel slug already exists: ${slug}`);
     }
 
@@ -171,6 +172,7 @@ launchForm.addEventListener("submit", async (event) => {
     ].join("\n");
 
     slugInput.value = "";
+    requestRuntimeRefresh();
   } catch (err) {
     resultBox.textContent = `status=error\nmessage=${err instanceof Error ? err.message : String(err)}`;
   } finally {
@@ -221,3 +223,8 @@ function syncWalletUi(accountId) {
 }
 
 await initWallet();
+subscribeRuntime((state) => {
+  knownVessels = Array.isArray(state?.vessels) ? state.vessels : [];
+});
+const initialState = getRuntimeState();
+knownVessels = Array.isArray(initialState?.vessels) ? initialState.vessels : [];

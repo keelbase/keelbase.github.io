@@ -1,10 +1,15 @@
-import { rpcView, escapeHtml } from "../keelbase-shared/core.js";
+import { escapeHtml } from "../keelbase-shared/core.js";
+import { requestRuntimeRefresh, subscribeRuntime } from "../keelbase-shared/client-runtime.js";
 
 const proposalsEl = document.getElementById("proposals");
 const statusEl = document.getElementById("status");
 const refreshBtn = document.getElementById("refreshBtn");
 
-refreshBtn.addEventListener("click", () => load(true));
+refreshBtn.addEventListener("click", () => {
+  statusEl.textContent = "Refreshing...";
+  statusEl.className = "meta";
+  requestRuntimeRefresh();
+});
 
 function renderProposals(proposals) {
   proposalsEl.innerHTML = "";
@@ -31,19 +36,21 @@ function renderProposals(proposals) {
   }
 }
 
-async function load(manual = false) {
-  statusEl.textContent = manual ? "Refreshing..." : "Syncing...";
-  statusEl.className = "meta";
-  try {
-    const proposals = await rpcView("get_proposals", { from_index: 0, limit: 120 });
-    renderProposals(proposals);
-    statusEl.textContent = `Live at ${new Date().toLocaleTimeString()}`;
-    statusEl.className = "meta status-good";
-  } catch (err) {
-    statusEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+function renderState(state) {
+  const proposals = Array.isArray(state?.proposals) ? state.proposals : [];
+  renderProposals(proposals);
+  if (state?.status === "error") {
+    statusEl.textContent = `Error: ${state.error || "failed to fetch"}`;
     statusEl.className = "meta status-bad";
+    return;
   }
+  if (!state?.lastUpdated) {
+    statusEl.textContent = "Syncing...";
+    statusEl.className = "meta";
+    return;
+  }
+  statusEl.textContent = `Live at ${new Date(state.lastUpdated).toLocaleTimeString()}`;
+  statusEl.className = "meta status-good";
 }
 
-await load();
-setInterval(load, 30000);
+subscribeRuntime(renderState);

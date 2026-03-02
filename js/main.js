@@ -6,6 +6,7 @@ import { saveUpload, hasWrappedKey, setPassphrase, unlockWithPassphrase } from "
 import { initThemeToggle, initThemeState, applyTheme, getTheme, applyWallpaper, getWallpaperName, clearWallpaper } from "./theme.js";
 import { createHud } from "./hud.js";
 import { createVoiceSttController } from "./voice-stt.js";
+import { startKeelbaseRuntime } from "./keelbase-runtime.js";
 // import { initAgent1C } from "./agent1c.js";
 // Onboarding phase and agent panel auto-spawn are intentionally disabled for Keelbase migration.
 
@@ -95,6 +96,7 @@ async function boot(){
 
   appsMenu.renderAppsMenu();
   appsMenu.renderSavedApps();
+  startKeelbaseRuntime();
   try {
     localStorage.removeItem(WINDOW_LAYOUT_KEY);
   } catch {}
