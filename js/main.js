@@ -107,7 +107,7 @@ async function boot(){
     localStorage.removeItem(WINDOW_LAYOUT_KEY);
   } catch {}
   await initKeelbaseWindowFlow(wm);
-  mountHedgehogMascot();
+  mountOriginalClippyAssistant();
   // wm.restoreLayoutSession?.();
   // await initAgent1C({ wm });
 
@@ -447,32 +447,93 @@ async function initKeelbaseWindowFlow(wm){
   });
 }
 
-function mountHedgehogMascot(){
-  if (document.getElementById("keelbaseHedgehogMascot")) return;
-  const mascot = document.createElement("button");
-  mascot.id = "keelbaseHedgehogMascot";
-  mascot.type = "button";
-  mascot.title = "Keelbase Hedgehog";
-  mascot.style.position = "fixed";
-  mascot.style.right = "14px";
-  mascot.style.bottom = "16px";
-  mascot.style.width = "68px";
-  mascot.style.height = "68px";
-  mascot.style.border = "1px solid rgba(255,255,255,0.45)";
-  mascot.style.borderRadius = "14px";
-  mascot.style.background = "rgba(8,14,28,0.78)";
-  mascot.style.backdropFilter = "blur(6px)";
-  mascot.style.cursor = "pointer";
-  mascot.style.zIndex = "9999";
-  mascot.innerHTML = '<img src=\"assets/hedgey1.png\" alt=\"Hedgehog\" style=\"width:48px;height:48px;object-fit:contain;\" />';
-  mascot.addEventListener("click", () => {
-    window.dispatchEvent(
-      new CustomEvent("hedgey:open-app", {
-        detail: { appId: "keelbaseTalkAgent" }
-      })
-    );
+function mountOriginalClippyAssistant(){
+  if (document.querySelector(".clippy-assistant")) return;
+
+  const root = document.createElement("div");
+  root.className = "clippy-assistant";
+  root.innerHTML = `
+    <div class="clippy-voice clippy-hidden"></div>
+    <div class="clippy-bubble">
+      <div class="clippy-bubble-title">Hitomi</div>
+      <div class="clippy-bubble-content">
+        <div class="clippy-log">
+          <div class="clippy-line"><strong>Hitomi:</strong> I am back. Ask me anything about your vessel and I will route you to the right agent.</div>
+        </div>
+        <div class="clippy-chips">
+          <button class="clippy-chip" type="button" data-clippy-open-talk>Open Vessel Chat</button>
+        </div>
+        <form class="clippy-form">
+          <input class="clippy-input" type="text" placeholder="Write a message..." />
+          <button class="clippy-send" type="submit">Send</button>
+        </form>
+      </div>
+    </div>
+    <div class="clippy-shadow" aria-hidden="true"></div>
+    <img class="clippy-body" src="assets/hedgey1.png" alt="Hitomi hedgehog assistant" draggable="false" />
+  `;
+
+  document.body.appendChild(root);
+
+  const body = root.querySelector(".clippy-body");
+  const bubble = root.querySelector(".clippy-bubble");
+  const form = root.querySelector(".clippy-form");
+  const input = root.querySelector(".clippy-input");
+  const openTalkBtn = root.querySelector("[data-clippy-open-talk]");
+  const log = root.querySelector(".clippy-log");
+
+  const place = () => {
+    const w = root.offsetWidth || 132;
+    const h = root.offsetHeight || 132;
+    const left = Math.max(8, window.innerWidth - w - 18);
+    const top = Math.max(36, window.innerHeight - h - 14);
+    root.style.left = `${left}px`;
+    root.style.top = `${top}px`;
+  };
+  place();
+  window.addEventListener("resize", place);
+
+  function openTalkWindowWithMessage(message){
+    window.dispatchEvent(new CustomEvent("hedgey:open-app", { detail: { appId: "keelbaseTalkAgent" } }));
+    if (message) {
+      const line = document.createElement("div");
+      line.className = "clippy-line";
+      line.innerHTML = `<strong>You:</strong> ${message}`;
+      log?.appendChild(line);
+      log.scrollTop = log.scrollHeight;
+    }
+  }
+
+  body?.addEventListener("click", () => {
+    bubble?.classList.toggle("clippy-hidden");
   });
-  document.body.appendChild(mascot);
+  openTalkBtn?.addEventListener("click", () => openTalkWindowWithMessage(""));
+  form?.addEventListener("submit", (event) => {
+    event.preventDefault();
+    const text = String(input?.value || "").trim();
+    if (!text) return;
+    openTalkWindowWithMessage(text);
+    if (input) input.value = "";
+  });
+
+  let drag = null;
+  body?.addEventListener("pointerdown", (event) => {
+    event.preventDefault();
+    const rect = root.getBoundingClientRect();
+    drag = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+    body.setPointerCapture?.(event.pointerId);
+  });
+  window.addEventListener("pointermove", (event) => {
+    if (!drag) return;
+    const left = Math.max(0, Math.min(window.innerWidth - root.offsetWidth, event.clientX - drag.dx));
+    const top = Math.max(30, Math.min(window.innerHeight - root.offsetHeight, event.clientY - drag.dy));
+    root.style.left = `${left}px`;
+    root.style.top = `${top}px`;
+    root.classList.toggle("facing-left", left < window.innerWidth / 2);
+  });
+  window.addEventListener("pointerup", () => {
+    drag = null;
+  });
 }
 
 boot();
