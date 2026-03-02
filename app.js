@@ -40,6 +40,7 @@ const chatInput = document.getElementById("chatInput");
 const chatSendBtn = document.getElementById("chatSendBtn");
 const chatStatusEl = document.getElementById("chatStatus");
 const chatLogEl = document.getElementById("chatLog");
+const activeVesselSlugEl = document.getElementById("activeVesselSlug");
 
 let wallet = null;
 let connectedAccountId = "";
@@ -47,6 +48,7 @@ let latestProposals = [];
 const vesselMetaCache = new Map();
 const vesselsBySlug = new Map();
 const chatHistory = [];
+let preferredVesselSlug = "";
 
 connectWalletBtn.addEventListener("click", async () => {
   if (!wallet) {
@@ -69,6 +71,10 @@ disconnectWalletBtn.addEventListener("click", () => {
   wallet.signOut();
   syncWalletUi("");
   onboardOutput.classList.add("hidden");
+});
+
+chatVesselSelect.addEventListener("change", () => {
+  syncActiveVesselLabel();
 });
 
 onboardForm.addEventListener("submit", async (event) => {
@@ -187,6 +193,7 @@ onboardForm.addEventListener("submit", async (event) => {
     ].join("\n");
     onboardOutput.classList.remove("hidden");
     slugInput.value = "";
+    preferredVesselSlug = slug;
     await loadData(true);
   } catch (error) {
     registerResultEl.textContent = `status=error\nmessage=${error instanceof Error ? error.message : String(error)}`;
@@ -205,12 +212,16 @@ chatForm.addEventListener("submit", async (event) => {
   if (!message) {
     return;
   }
+  if (!vesselSlug) {
+    alert("Please select a vessel first.");
+    return;
+  }
 
-  appendChatMessage("user", message);
+  appendChatMessage("user", message, vesselSlug);
   chatInput.value = "";
   chatSendBtn.disabled = true;
   chatSendBtn.textContent = "Sending...";
-  chatStatusEl.textContent = "Asking vessel agent...";
+  chatStatusEl.textContent = `Asking vessel ${vesselSlug} agent...`;
 
   try {
     const res = await fetch(`${CHAT_API_BASE_URL}/api/chat`, {
@@ -229,12 +240,12 @@ chatForm.addEventListener("submit", async (event) => {
       throw new Error(json?.error || `chat request failed (${res.status})`);
     }
 
-    appendChatMessage("assistant", String(json.reply || "No response"));
+    appendChatMessage("assistant", String(json.reply || "No response"), vesselSlug);
     const anchored = json.anchorProposalId ? ` anchor=${json.anchorProposalId}` : "";
-    chatStatusEl.textContent = `Live reply (${json.source || "near_ai"}) model=${json.model || "unknown"}${anchored}`;
+    chatStatusEl.textContent = `Live reply for ${vesselSlug} (${json.source || "near_ai"}) model=${json.model || "unknown"}${anchored}`;
     await loadData(true);
   } catch (error) {
-    appendChatMessage("assistant", `I hit an error: ${error instanceof Error ? error.message : String(error)}`);
+    appendChatMessage("assistant", `I hit an error: ${error instanceof Error ? error.message : String(error)}`, vesselSlug);
     chatStatusEl.textContent = "Chat failed. Check API/CORS config.";
   } finally {
     chatSendBtn.disabled = false;
@@ -417,6 +428,7 @@ function renderChatVesselOptions() {
     chatVesselSelect.appendChild(option);
     chatVesselSelect.disabled = true;
     chatSendBtn.disabled = true;
+    syncActiveVesselLabel();
     return;
   }
 
@@ -432,7 +444,15 @@ function renderChatVesselOptions() {
 
   if (current && vesselsBySlug.has(current)) {
     chatVesselSelect.value = current;
+  } else if (preferredVesselSlug && vesselsBySlug.has(preferredVesselSlug)) {
+    chatVesselSelect.value = preferredVesselSlug;
+  } else if (connectedAccountId) {
+    const ownVessel = vessels.find((entry) => entry.owner === connectedAccountId);
+    if (ownVessel) {
+      chatVesselSelect.value = ownVessel.slug;
+    }
   }
+  syncActiveVesselLabel();
 }
 
 function collectRegistrationAnchors(proposals) {
@@ -479,17 +499,26 @@ async function loadMetaByHash(hash) {
   }
 }
 
-function appendChatMessage(role, text) {
+function appendChatMessage(role, text, vesselSlug) {
   chatHistory.push({ role, content: text });
   const node = document.createElement("article");
   node.className = "chat-msg";
-  const who = role === "assistant" ? "Vessel Agent" : "You";
+  const who = role === "assistant" ? `Vessel Agent (${vesselSlug || "none"})` : `You (${vesselSlug || "none"})`;
   node.innerHTML = `
     <p class="who">${escapeHtml(who)}</p>
     <p class="text">${escapeHtml(text)}</p>
   `;
   chatLogEl.appendChild(node);
   chatLogEl.scrollTop = chatLogEl.scrollHeight;
+}
+
+function syncActiveVesselLabel() {
+  const slug = chatVesselSelect.value;
+  if (slug) {
+    activeVesselSlugEl.textContent = `Active vessel: ${slug}`;
+  } else {
+    activeVesselSlugEl.textContent = "Active vessel: none selected";
+  }
 }
 
 function updateTrafficLight(latestAnchor) {
