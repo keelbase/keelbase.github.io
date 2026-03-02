@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Keelbase Internal Tester</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <div class="bg"></div>
+    <main class="wrap">
+      <header>
+        <p class="eyebrow">KEELBASE</p>
+        <h1>Internal Tester Console</h1>
+        <p class="sub">Live view of CEO cycle output from NEAR testnet. Refreshes every 30 seconds.</p>
+      </header>
+
+      <section class="cards">
+        <article class="card">
+          <h2>Snapshot</h2>
+          <dl id="snapshot" class="kv"></dl>
+        </article>
+
+        <article class="card">
+          <h2>Latest AI Anchor</h2>
+          <p id="anchorSummary" class="summary">Loading...</p>
+          <p id="anchorMeta" class="meta"></p>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="row">
+          <h2>Recent Proposals</h2>
+          <button id="refreshBtn" type="button">Refresh Now</button>
+        </div>
+        <div id="proposals" class="list"></div>
+      </section>
+
+      <footer>
+        <p>Contract: <code id="contractId"></code></p>
+        <p>RPC: <code id="rpcUrl"></code></p>
+        <p id="status" class="status">Starting...</p>
+      </footer>
+    </main>
+
+    <script src="./app.js" type="module"></script>
+  </body>
+</html>
