@@ -15,6 +15,69 @@ const signalNoteEl = document.getElementById("signalNote");
 const refreshBtn = document.getElementById("refreshBtn");
 refreshBtn.addEventListener("click", () => loadData(true));
 
+const onboardForm = document.getElementById("onboardForm");
+const onboardOutput = document.getElementById("onboardOutput");
+const slugInput = document.getElementById("slugInput");
+const ownerInput = document.getElementById("ownerInput");
+const contractInput = document.getElementById("contractInput");
+const deployCmdEl = document.getElementById("deployCmd");
+const registerCmdEl = document.getElementById("registerCmd");
+const copyDeployBtn = document.getElementById("copyDeployBtn");
+const copyRegisterBtn = document.getElementById("copyRegisterBtn");
+
+onboardForm.addEventListener("submit", (event) => {
+  event.preventDefault();
+  const slug = normalizeSlug(slugInput.value);
+  const owner = ownerInput.value.trim();
+  const vesselContractId = contractInput.value.trim() || owner;
+
+  if (!slug) {
+    alert("Please enter a valid slug (letters, numbers, hyphens).");
+    return;
+  }
+  if (!/^[a-z0-9._-]+\.testnet$/i.test(owner)) {
+    alert("Owner account should look like alice.testnet");
+    return;
+  }
+  if (!/^[a-z0-9._-]+\.testnet$/i.test(vesselContractId)) {
+    alert("Vessel contract id should be a testnet account id.");
+    return;
+  }
+
+  const deployCmd = [
+    "near deploy",
+    vesselContractId,
+    "../../target/near/coordination_contract/coordination_contract.wasm",
+    "--initFunction new",
+    "--initArgs '{}'",
+    `--accountId ${owner}`,
+    "--networkId testnet"
+  ].join(" ");
+
+  const registerCmd = [
+    "npm run ceo:register-vessel --",
+    `--slug=${slug}`,
+    `--owner-account=${owner}`,
+    `--vessel-contract-id=${vesselContractId}`
+  ].join(" ");
+
+  deployCmdEl.textContent = deployCmd;
+  registerCmdEl.textContent = registerCmd;
+  onboardOutput.classList.remove("hidden");
+});
+
+copyDeployBtn.addEventListener("click", async () => {
+  await copyToClipboard(deployCmdEl.textContent || "");
+  copyDeployBtn.textContent = "Copied";
+  setTimeout(() => (copyDeployBtn.textContent = "Copy"), 1000);
+});
+
+copyRegisterBtn.addEventListener("click", async () => {
+  await copyToClipboard(registerCmdEl.textContent || "");
+  copyRegisterBtn.textContent = "Copied";
+  setTimeout(() => (copyRegisterBtn.textContent = "Copy"), 1000);
+});
+
 document.getElementById("contractId").textContent = CONTRACT_ID;
 document.getElementById("rpcUrl").textContent = RPC_URL;
 
@@ -160,6 +223,29 @@ function setSignal(kind, title, note) {
   signalBoxEl.className = `signal signal-${kind}`;
   signalTitleEl.textContent = title;
   signalNoteEl.textContent = note;
+}
+
+function normalizeSlug(value) {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+async function copyToClipboard(text) {
+  if (!text) return;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const helper = document.createElement("textarea");
+    helper.value = text;
+    document.body.appendChild(helper);
+    helper.select();
+    document.execCommand("copy");
+    helper.remove();
+  }
 }
 
 loadData();

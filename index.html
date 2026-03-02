@@ -47,6 +47,44 @@
         <div id="proposals" class="list"></div>
       </section>
 
+      <section class="card">
+        <h2>Launch New Vessel (User-Owned Alpha)</h2>
+        <p class="subtle">
+          Users deploy their own contract with their wallet/account. Then we register it in low-balance alpha mode.
+        </p>
+        <form id="onboardForm" class="form-grid">
+          <label>
+            Vessel Slug
+            <input id="slugInput" type="text" placeholder="acme-labs" required />
+          </label>
+          <label>
+            Owner Account
+            <input id="ownerInput" type="text" placeholder="alice.testnet" required />
+          </label>
+          <label>
+            Vessel Contract ID
+            <input id="contractInput" type="text" placeholder="alice.testnet (or custom subaccount)" />
+          </label>
+          <button id="generateBtn" type="submit">Generate Launch Steps</button>
+        </form>
+        <div id="onboardOutput" class="onboard-output hidden">
+          <article class="step">
+            <div class="step-head">
+              <h3>Step 1: User Deploy Command</h3>
+              <button id="copyDeployBtn" type="button">Copy</button>
+            </div>
+            <pre id="deployCmd"></pre>
+          </article>
+          <article class="step">
+            <div class="step-head">
+              <h3>Step 2: Registration Command</h3>
+              <button id="copyRegisterBtn" type="button">Copy</button>
+            </div>
+            <pre id="registerCmd"></pre>
+          </article>
+        </div>
+      </section>
+
       <footer>
         <p>Contract: <code id="contractId"></code></p>
         <p>RPC: <code id="rpcUrl"></code></p>
