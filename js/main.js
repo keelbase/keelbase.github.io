@@ -449,12 +449,14 @@ async function initKeelbaseWindowFlow(wm){
 
 function mountOriginalClippyAssistant(){
   if (document.querySelector(".clippy-assistant")) return;
+  const desktopEl = document.getElementById("desktop");
+  if (!desktopEl) return;
 
   const root = document.createElement("div");
   root.className = "clippy-assistant";
   root.innerHTML = `
     <div class="clippy-voice clippy-hidden"></div>
-    <div class="clippy-bubble">
+    <div class="clippy-bubble clippy-hidden">
       <div class="clippy-bubble-title">Hitomi</div>
       <div class="clippy-bubble-content">
         <div class="clippy-log">
@@ -472,8 +474,7 @@ function mountOriginalClippyAssistant(){
     <div class="clippy-shadow" aria-hidden="true"></div>
     <img class="clippy-body" src="assets/hedgey1.png" alt="Hitomi hedgehog assistant" draggable="false" />
   `;
-
-  document.body.appendChild(root);
+  desktopEl.appendChild(root);
 
   const body = root.querySelector(".clippy-body");
   const bubble = root.querySelector(".clippy-bubble");
@@ -482,16 +483,152 @@ function mountOriginalClippyAssistant(){
   const openTalkBtn = root.querySelector("[data-clippy-open-talk]");
   const log = root.querySelector(".clippy-log");
 
-  const place = () => {
-    const w = root.offsetWidth || 132;
-    const h = root.offsetHeight || 132;
-    const left = Math.max(8, window.innerWidth - w - 18);
-    const top = Math.max(36, window.innerHeight - h - 14);
-    root.style.left = `${left}px`;
-    root.style.top = `${top}px`;
-  };
-  place();
-  window.addEventListener("resize", place);
+  body.style.touchAction = "none";
+  if (bubble) bubble.style.zIndex = "2";
+
+  function rectOverlapArea(a, b){
+    const x = Math.max(0, Math.min(a.right, b.right) - Math.max(a.left, b.left));
+    const y = Math.max(0, Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top));
+    return x * y;
+  }
+
+  function getBounds(){
+    const dw = desktopEl.clientWidth || 0;
+    const dh = desktopEl.clientHeight || 0;
+    const rw = root.offsetWidth || 132;
+    const rh = root.offsetHeight || 132;
+    return {
+      minLeft: 0,
+      maxLeft: Math.max(0, dw - rw),
+      minTop: 0,
+      maxTop: Math.max(0, dh - rh),
+      dw,
+      dh
+    };
+  }
+
+  function clampPos(left, top){
+    const bounds = getBounds();
+    return {
+      left: Math.max(bounds.minLeft, Math.min(left, bounds.maxLeft)),
+      top: Math.max(bounds.minTop, Math.min(top, bounds.maxTop))
+    };
+  }
+
+  function positionBubble(){
+    if (!bubble || bubble.classList.contains("clippy-hidden")) return;
+    const bounds = getBounds();
+    if (!bounds.dw || !bounds.dh) return;
+
+    const rootLeft = parseFloat(root.style.left) || 0;
+    const rootTop = parseFloat(root.style.top) || 0;
+    const rootW = root.offsetWidth || 132;
+    const rootH = root.offsetHeight || 132;
+    const bubbleW = bubble.offsetWidth || 280;
+    const bubbleH = bubble.offsetHeight || 220;
+    const pad = 6;
+    const gap = 8;
+
+    const anchorLocalX = Math.max(18, Math.min(rootW - 18, Math.round(rootW * 0.57)));
+    const anchorGlobalX = rootLeft + anchorLocalX;
+
+    let bubbleGlobalLeft = Math.round(anchorGlobalX - bubbleW / 2);
+    bubbleGlobalLeft = Math.max(pad, Math.min(bubbleGlobalLeft, Math.max(pad, bounds.dw - bubbleW - pad)));
+
+    let place = "down";
+    let bubbleGlobalTop = Math.round(rootTop - bubbleH - gap);
+    if (bubbleGlobalTop < pad) {
+      place = "up";
+      bubbleGlobalTop = Math.round(rootTop + rootH + gap);
+      bubbleGlobalTop = Math.min(bubbleGlobalTop, Math.max(pad, bounds.dh - bubbleH - pad));
+    }
+    bubbleGlobalTop = Math.max(pad, Math.min(bubbleGlobalTop, Math.max(pad, bounds.dh - bubbleH - pad)));
+
+    const localLeft = bubbleGlobalLeft - rootLeft;
+    const localTop = bubbleGlobalTop - rootTop;
+    bubble.style.left = `${localLeft}px`;
+    bubble.style.top = `${localTop}px`;
+    bubble.style.bottom = "auto";
+    bubble.style.transform = "none";
+    bubble.dataset.tail = place;
+
+    const tailX = Math.max(14, Math.min(bubbleW - 14, anchorGlobalX - bubbleGlobalLeft));
+    bubble.style.setProperty("--tail-left", `${tailX}px`);
+  }
+
+  function setPosition(left, top){
+    const next = clampPos(left, top);
+    root.style.left = `${Math.round(next.left)}px`;
+    root.style.top = `${Math.round(next.top)}px`;
+    positionBubble();
+  }
+
+  function snapOutOfBubble({ preferAbove = false } = {}){
+    if (!bubble || bubble.classList.contains("clippy-hidden")) return;
+    const dw = desktopEl.clientWidth || 0;
+    const dh = desktopEl.clientHeight || 0;
+    if (!dw || !dh) return;
+
+    positionBubble();
+    const bodyRect0 = body.getBoundingClientRect();
+    const bubbleRect0 = bubble.getBoundingClientRect();
+    if (!bodyRect0.width || !bodyRect0.height || !bubbleRect0.width || !bubbleRect0.height) return;
+    if (rectOverlapArea(bodyRect0, bubbleRect0) <= 0) return;
+
+    const bodyW = bodyRect0.width;
+    const bodyH = bodyRect0.height;
+    const bubbleRect = bubbleRect0;
+    const curLeft = parseFloat(root.style.left) || 0;
+    const curTop = parseFloat(root.style.top) || 0;
+    const anchorX = bubbleRect.left + bubbleRect.width * 0.5 - bodyW * 0.5;
+    const candidates = [];
+    const add = (x, y) => candidates.push({ x, y });
+    add(curLeft, bubbleRect.top - bodyH - 8);
+    add(curLeft, bubbleRect.bottom + 8);
+    add(bubbleRect.left - bodyW - 8, curTop);
+    add(bubbleRect.right + 8, curTop);
+    add(anchorX, bubbleRect.top - bodyH - 8);
+    add(anchorX, bubbleRect.bottom + 8);
+    if (preferAbove) {
+      candidates.unshift(
+        { x: curLeft, y: bubbleRect.top - bodyH - 8 },
+        { x: anchorX, y: bubbleRect.top - bodyH - 8 }
+      );
+    }
+
+    let best = { score: Infinity, x: curLeft, y: curTop };
+    for (const candidate of candidates) {
+      const nx = Math.max(0, Math.min(candidate.x, Math.max(0, dw - (root.offsetWidth || 64))));
+      const ny = Math.max(0, Math.min(candidate.y, Math.max(0, dh - (root.offsetHeight || 64))));
+      root.style.left = `${nx}px`;
+      root.style.top = `${ny}px`;
+      positionBubble();
+
+      const bodyRect = body.getBoundingClientRect();
+      const bRect = bubble.getBoundingClientRect();
+      const overlap = rectOverlapArea(bodyRect, bRect);
+      const isAbove = bodyRect.bottom <= bRect.top + 1;
+      const dist = Math.abs(nx - curLeft) + Math.abs(ny - curTop);
+      const score = overlap * 1e6 + (preferAbove && !isAbove ? 1e5 : 0) + dist;
+      if (score < best.score) best = { score, x: nx, y: ny };
+      if (overlap <= 0 && (!preferAbove || isAbove)) {
+        best = { score, x: nx, y: ny };
+        break;
+      }
+    }
+    root.style.left = `${best.x}px`;
+    root.style.top = `${best.y}px`;
+    positionBubble();
+  }
+
+  function showBubble({ preferAbove = true } = {}){
+    if (!bubble) return;
+    bubble.classList.remove("clippy-hidden");
+    requestAnimationFrame(() => {
+      positionBubble();
+      snapOutOfBubble({ preferAbove });
+    });
+  }
 
   function openTalkWindowWithMessage(message){
     window.dispatchEvent(new CustomEvent("hedgey:open-app", { detail: { appId: "keelbaseTalkAgent" } }));
@@ -504,9 +641,18 @@ function mountOriginalClippyAssistant(){
     }
   }
 
-  body?.addEventListener("click", () => {
-    bubble?.classList.toggle("clippy-hidden");
+  const place = () => {
+    const bounds = getBounds();
+    setPosition(Math.max(bounds.minLeft, Math.min(20, bounds.maxLeft)), bounds.maxTop);
+  };
+  place();
+  window.addEventListener("resize", () => {
+    const left = parseFloat(root.style.left) || 0;
+    const top = parseFloat(root.style.top) || 0;
+    setPosition(left, top);
+    snapOutOfBubble({ preferAbove: false });
   });
+
   openTalkBtn?.addEventListener("click", () => openTalkWindowWithMessage(""));
   form?.addEventListener("submit", (event) => {
     event.preventDefault();
@@ -516,23 +662,67 @@ function mountOriginalClippyAssistant(){
     if (input) input.value = "";
   });
 
-  let drag = null;
+  let dragging = false;
+  let moved = false;
+  let startX = 0;
+  let startY = 0;
+  let baseLeft = 0;
+  let baseTop = 0;
   body?.addEventListener("pointerdown", (event) => {
     event.preventDefault();
-    const rect = root.getBoundingClientRect();
-    drag = { dx: event.clientX - rect.left, dy: event.clientY - rect.top };
+    dragging = true;
+    moved = false;
+    startX = event.clientX;
+    startY = event.clientY;
+    baseLeft = parseFloat(root.style.left) || 0;
+    baseTop = parseFloat(root.style.top) || 0;
     body.setPointerCapture?.(event.pointerId);
   });
-  window.addEventListener("pointermove", (event) => {
-    if (!drag) return;
-    const left = Math.max(0, Math.min(window.innerWidth - root.offsetWidth, event.clientX - drag.dx));
-    const top = Math.max(30, Math.min(window.innerHeight - root.offsetHeight, event.clientY - drag.dy));
-    root.style.left = `${left}px`;
-    root.style.top = `${top}px`;
-    root.classList.toggle("facing-left", left < window.innerWidth / 2);
+  body?.addEventListener("pointermove", (event) => {
+    if (!dragging) return;
+    event.preventDefault();
+    const dx = event.clientX - startX;
+    const dy = event.clientY - startY;
+    if (Math.abs(dx) > 3 || Math.abs(dy) > 3) moved = true;
+    baseLeft += dx;
+    baseTop += dy;
+    startX = event.clientX;
+    startY = event.clientY;
+    const prevLeft = parseFloat(root.style.left) || 0;
+    setPosition(baseLeft, baseTop);
+    const nextLeft = parseFloat(root.style.left) || 0;
+    root.classList.toggle("facing-left", nextLeft < prevLeft);
   });
-  window.addEventListener("pointerup", () => {
-    drag = null;
+  body?.addEventListener("pointerup", (event) => {
+    if (!dragging) return;
+    dragging = false;
+    body.releasePointerCapture?.(event.pointerId);
+    if (!moved) {
+      if (bubble?.classList.contains("clippy-hidden")) {
+        showBubble({ preferAbove: true });
+      } else {
+        bubble?.classList.add("clippy-hidden");
+      }
+      return;
+    }
+    snapOutOfBubble({ preferAbove: false });
+  });
+  body?.addEventListener("pointercancel", () => {
+    dragging = false;
+  });
+  body?.addEventListener("dragstart", (event) => {
+    event.preventDefault();
+  });
+
+  document.addEventListener("pointerdown", (event) => {
+    if (!bubble || bubble.classList.contains("clippy-hidden")) return;
+    if (root.contains(event.target)) return;
+    bubble.classList.add("clippy-hidden");
+  }, true);
+
+  // Open bubble once on boot with proper placement logic.
+  requestAnimationFrame(() => {
+    showBubble({ preferAbove: true });
   });
 }
 
