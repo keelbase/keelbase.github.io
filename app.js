@@ -56,7 +56,6 @@ disconnectWalletBtn.addEventListener("click", () => {
   onboardOutput.classList.add("hidden");
 });
 
-onboardForm.addEventListener("submit", (event) => {
 onboardForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!connectedAccountId) {
