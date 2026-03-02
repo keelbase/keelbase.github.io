@@ -15,6 +15,10 @@ const desktop = document.getElementById("desktop");
 const iconLayer = document.getElementById("iconLayer");
 const openWindowsList = document.getElementById("openWindowsList");
 const WINDOW_LAYOUT_KEY = "hedgey_window_layout_v1";
+const KEELBASE_FLOW_KEY = "keelbase_flow_phase_v1";
+const KEELBASE_FLOW_CHANNEL = "keelbase-flow-v1";
+const FLOW_PHASE_BOOTSTRAP = "bootstrap";
+const FLOW_PHASE_FULL = "full";
 
 async function loadAppsConfig(){
   try{
@@ -100,7 +104,7 @@ async function boot(){
   try {
     localStorage.removeItem(WINDOW_LAYOUT_KEY);
   } catch {}
-  spawnKeelbaseWindows(wm);
+  initKeelbaseWindowFlow(wm);
   mountHedgehogMascot();
   // wm.restoreLayoutSession?.();
   // await initAgent1C({ wm });
@@ -299,6 +303,19 @@ function positionWindow(id, target){
 
 function spawnKeelbaseWindows(wm){
   const startupLayout = [
+    { title: "Recent Proposals", url: "/apps/keelbase-recent-proposals/", pos: { left: 18, top: 340 } },
+    { title: "Launch New Vessel", url: "/apps/keelbase-launch-vessel/", pos: { left: 380, top: 340 } }
+  ];
+
+  const startupWindows = startupLayout.map((entry) => {
+    const id = wm.createAppWindow(entry.title, entry.url);
+    return { id, pos: entry.pos };
+  });
+  startupWindows.forEach((entry) => positionWindow(entry.id, entry.pos));
+}
+
+function spawnAllKeelbaseWindows(wm){
+  const startupLayout = [
     { title: "Snapshot", url: "/apps/keelbase-snapshot/", pos: { left: 18, top: 34 } },
     { title: "Latest AI Anchor", url: "/apps/keelbase-latest-anchor/", pos: { left: 380, top: 34 } },
     { title: "State", url: "/apps/keelbase-state/", pos: { left: 742, top: 34 } },
@@ -309,10 +326,62 @@ function spawnKeelbaseWindows(wm){
   ];
 
   const startupWindows = startupLayout.map((entry) => {
-    const id = wm.createAppWindow(entry.title, entry.url);
+    const existing = wm.findWindowByTitle?.(entry.title);
+    const id = existing?.id || wm.createAppWindow(entry.title, entry.url);
     return { id, pos: entry.pos };
   });
   startupWindows.forEach((entry) => positionWindow(entry.id, entry.pos));
+}
+
+function getKeelbaseFlowPhase(){
+  try {
+    const raw = String(localStorage.getItem(KEELBASE_FLOW_KEY) || "").trim().toLowerCase();
+    return raw === FLOW_PHASE_FULL ? FLOW_PHASE_FULL : FLOW_PHASE_BOOTSTRAP;
+  } catch {
+    return FLOW_PHASE_BOOTSTRAP;
+  }
+}
+
+function setKeelbaseFlowPhase(phase){
+  const normalized = phase === FLOW_PHASE_FULL ? FLOW_PHASE_FULL : FLOW_PHASE_BOOTSTRAP;
+  try {
+    localStorage.setItem(KEELBASE_FLOW_KEY, normalized);
+  } catch {}
+  return normalized;
+}
+
+function triggerTileAfterPaint(wm){
+  requestAnimationFrame(() => {
+    requestAnimationFrame(() => {
+      wm.tileVisibleWindows?.();
+    });
+  });
+}
+
+function initKeelbaseWindowFlow(wm){
+  let phase = getKeelbaseFlowPhase();
+  if (phase === FLOW_PHASE_FULL) {
+    spawnAllKeelbaseWindows(wm);
+    triggerTileAfterPaint(wm);
+  } else {
+    spawnKeelbaseWindows(wm);
+    triggerTileAfterPaint(wm);
+  }
+
+  const flowChannel = new BroadcastChannel(KEELBASE_FLOW_CHANNEL);
+  const promoteToFull = () => {
+    if (phase === FLOW_PHASE_FULL) return;
+    phase = setKeelbaseFlowPhase(FLOW_PHASE_FULL);
+    spawnAllKeelbaseWindows(wm);
+    triggerTileAfterPaint(wm);
+  };
+
+  flowChannel.addEventListener("message", (event) => {
+    const message = event?.data || {};
+    if (message.type === "keelbase:flow:vessel-created") {
+      promoteToFull();
+    }
+  });
 }
 
 function mountHedgehogMascot(){

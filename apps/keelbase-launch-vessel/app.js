@@ -11,6 +11,8 @@ import {
 import { getRuntimeState, requestRuntimeRefresh, subscribeRuntime } from "../keelbase-shared/client-runtime.js";
 
 const CREW_ROLES = ["ceo", "liaison", "ops", "marketing", "finance", "tech"];
+const KEELBASE_FLOW_KEY = "keelbase_flow_phase_v1";
+const KEELBASE_FLOW_CHANNEL = "keelbase-flow-v1";
 
 const walletStatusEl = document.getElementById("walletStatus");
 const connectWalletBtn = document.getElementById("connectWalletBtn");
@@ -171,6 +173,7 @@ launchForm.addEventListener("submit", async (event) => {
       `explorer=https://testnet.nearblocks.io/txns/${anchorTxHash}`
     ].join("\n");
 
+    markFlowAsFull();
     slugInput.value = "";
     requestRuntimeRefresh();
   } catch (err) {
@@ -220,6 +223,17 @@ function syncWalletUi(accountId) {
     walletStatusEl.className = "meta";
     connectWalletBtn.textContent = "Connect NEAR Wallet";
   }
+}
+
+function markFlowAsFull() {
+  try {
+    localStorage.setItem(KEELBASE_FLOW_KEY, "full");
+  } catch {}
+  try {
+    const channel = new BroadcastChannel(KEELBASE_FLOW_CHANNEL);
+    channel.postMessage({ type: "keelbase:flow:vessel-created", ts: Date.now() });
+    channel.close();
+  } catch {}
 }
 
 await initWallet();

@@ -22,10 +22,10 @@
       try {
         var themeKey = "hedgeyos_theme_v1";
         var darkKey = "hedgeyos_dark_mode";
-        var raw = localStorage.getItem(themeKey) || "hedgeyOS";
+        var raw = localStorage.getItem(themeKey) || "greenscreen";
         if (raw === "hedgey") raw = "hedgeyOS";
         var allowed = { beos: 1, system7: 1, greenscreen: 1, cyberpunk: 1, hedgeyOS: 1 };
-        var theme = allowed[raw] ? raw : "hedgeyOS";
+        var theme = allowed[raw] ? raw : "greenscreen";
         var cls = document.body.classList;
         cls.toggle("beos", theme === "beos");
         cls.toggle("system7", theme === "system7");
