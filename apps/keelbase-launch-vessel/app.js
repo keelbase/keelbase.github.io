@@ -215,10 +215,12 @@ function syncWalletUi(accountId) {
   contractInput.value = connectedAccountId;
 
   if (connectedAccountId) {
+    emitFlowEvent("keelbase:flow:wallet-connected", { accountId: connectedAccountId });
     walletStatusEl.textContent = `Wallet: ${connectedAccountId}`;
     walletStatusEl.className = "meta status-good";
     connectWalletBtn.textContent = "Wallet Connected";
   } else {
+    emitFlowEvent("keelbase:flow:wallet-disconnected");
     walletStatusEl.textContent = "Wallet: not connected";
     walletStatusEl.className = "meta";
     connectWalletBtn.textContent = "Connect NEAR Wallet";
@@ -229,9 +231,13 @@ function markFlowAsFull() {
   try {
     localStorage.setItem(KEELBASE_FLOW_KEY, "full");
   } catch {}
+  emitFlowEvent("keelbase:flow:vessel-created", { ts: Date.now() });
+}
+
+function emitFlowEvent(type, extra = {}) {
   try {
     const channel = new BroadcastChannel(KEELBASE_FLOW_CHANNEL);
-    channel.postMessage({ type: "keelbase:flow:vessel-created", ts: Date.now() });
+    channel.postMessage({ type, ...extra });
     channel.close();
   } catch {}
 }

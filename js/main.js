@@ -17,8 +17,10 @@ const openWindowsList = document.getElementById("openWindowsList");
 const WINDOW_LAYOUT_KEY = "hedgey_window_layout_v1";
 const KEELBASE_FLOW_KEY = "keelbase_flow_phase_v1";
 const KEELBASE_FLOW_CHANNEL = "keelbase-flow-v1";
+const KEELBASE_RUNTIME_CHANNEL = "keelbase-runtime-v1";
 const FLOW_PHASE_BOOTSTRAP = "bootstrap";
 const FLOW_PHASE_FULL = "full";
+const KEELBASE_WALLET_AUTH_KEY = "keelbase-pages_wallet_auth_key";
 
 async function loadAppsConfig(){
   try{
@@ -104,7 +106,7 @@ async function boot(){
   try {
     localStorage.removeItem(WINDOW_LAYOUT_KEY);
   } catch {}
-  initKeelbaseWindowFlow(wm);
+  await initKeelbaseWindowFlow(wm);
   mountHedgehogMascot();
   // wm.restoreLayoutSession?.();
   // await initAgent1C({ wm });
@@ -358,9 +360,51 @@ function triggerTileAfterPaint(wm){
   });
 }
 
-function initKeelbaseWindowFlow(wm){
+function hasKnownVessels(){
+  const state = window.__keelbaseRuntimeState;
+  return Array.isArray(state?.vessels) && state.vessels.length > 0;
+}
+
+async function waitForRuntimeVessels(timeoutMs = 1400){
+  if (hasKnownVessels()) return true;
+  const channel = new BroadcastChannel(KEELBASE_RUNTIME_CHANNEL);
+  return await new Promise((resolve) => {
+    let settled = false;
+    const finish = (value) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      channel.close();
+      resolve(Boolean(value));
+    };
+    const timer = setTimeout(() => finish(false), timeoutMs);
+    channel.addEventListener("message", (event) => {
+      const message = event?.data || {};
+      if (message.type !== "keelbase:state") return;
+      const vessels = message?.state?.vessels;
+      if (Array.isArray(vessels) && vessels.length > 0) {
+        finish(true);
+      }
+    });
+    channel.postMessage({ type: "keelbase:request-state" });
+  });
+}
+
+function hasWalletAuthHint(){
+  try {
+    return Boolean(localStorage.getItem(KEELBASE_WALLET_AUTH_KEY));
+  } catch {
+    return false;
+  }
+}
+
+async function initKeelbaseWindowFlow(wm){
   let phase = getKeelbaseFlowPhase();
-  if (phase === FLOW_PHASE_FULL) {
+  let walletConnected = hasWalletAuthHint();
+  const startupShouldBeFull = phase === FLOW_PHASE_FULL
+    || (walletConnected && await waitForRuntimeVessels());
+  if (startupShouldBeFull) {
+    phase = setKeelbaseFlowPhase(FLOW_PHASE_FULL);
     spawnAllKeelbaseWindows(wm);
     triggerTileAfterPaint(wm);
   } else {
@@ -369,18 +413,39 @@ function initKeelbaseWindowFlow(wm){
   }
 
   const flowChannel = new BroadcastChannel(KEELBASE_FLOW_CHANNEL);
+  const runtimeChannel = new BroadcastChannel(KEELBASE_RUNTIME_CHANNEL);
   const promoteToFull = () => {
     if (phase === FLOW_PHASE_FULL) return;
     phase = setKeelbaseFlowPhase(FLOW_PHASE_FULL);
     spawnAllKeelbaseWindows(wm);
     triggerTileAfterPaint(wm);
   };
+  const maybePromoteFromGuard = () => {
+    if (phase === FLOW_PHASE_FULL) return;
+    if (walletConnected && hasKnownVessels()) {
+      promoteToFull();
+    }
+  };
 
   flowChannel.addEventListener("message", (event) => {
     const message = event?.data || {};
     if (message.type === "keelbase:flow:vessel-created") {
       promoteToFull();
+      return;
     }
+    if (message.type === "keelbase:flow:wallet-connected") {
+      walletConnected = true;
+      maybePromoteFromGuard();
+      return;
+    }
+    if (message.type === "keelbase:flow:wallet-disconnected") {
+      walletConnected = false;
+    }
+  });
+  runtimeChannel.addEventListener("message", (event) => {
+    const message = event?.data || {};
+    if (message.type !== "keelbase:state") return;
+    maybePromoteFromGuard();
   });
 }
 
