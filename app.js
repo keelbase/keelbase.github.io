@@ -1,6 +1,11 @@
+import { connect, keyStores, WalletConnection } from "https://esm.sh/near-api-js@5.1.1";
+
 const RPC_URL = "https://test.rpc.fastnear.com";
 const CONTRACT_ID = "coord2-1772411670-keelbase.testnet";
 const CEO_ACCOUNT = "ceo.coord2-1772411670-keelbase.testnet";
+const NETWORK_ID = "testnet";
+const WALLET_URL = "https://wallet.testnet.near.org";
+const HELPER_URL = "https://helper.testnet.near.org";
 const REFRESH_MS = 30000;
 
 const statusEl = document.getElementById("status");
@@ -24,23 +29,47 @@ const deployCmdEl = document.getElementById("deployCmd");
 const registerCmdEl = document.getElementById("registerCmd");
 const copyDeployBtn = document.getElementById("copyDeployBtn");
 const copyRegisterBtn = document.getElementById("copyRegisterBtn");
+const connectWalletBtn = document.getElementById("connectWalletBtn");
+const disconnectWalletBtn = document.getElementById("disconnectWalletBtn");
+const walletStatusEl = document.getElementById("walletStatus");
+
+let wallet = null;
+let connectedAccountId = "";
+
+connectWalletBtn.addEventListener("click", async () => {
+  if (!wallet) {
+    await initWallet();
+  }
+  if (!wallet) return;
+  if (wallet.isSignedIn()) {
+    syncWalletUi(wallet.getAccountId());
+    return;
+  }
+  wallet.requestSignIn({
+    successUrl: window.location.href,
+    failureUrl: window.location.href
+  });
+});
+
+disconnectWalletBtn.addEventListener("click", () => {
+  if (!wallet) return;
+  wallet.signOut();
+  syncWalletUi("");
+  onboardOutput.classList.add("hidden");
+});
 
 onboardForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  if (!connectedAccountId) {
+    alert("Please connect a NEAR testnet wallet first.");
+    return;
+  }
   const slug = normalizeSlug(slugInput.value);
-  const owner = ownerInput.value.trim();
-  const vesselContractId = contractInput.value.trim() || owner;
+  const owner = connectedAccountId;
+  const vesselContractId = connectedAccountId;
 
   if (!slug) {
     alert("Please enter a valid slug (letters, numbers, hyphens).");
-    return;
-  }
-  if (!/^[a-z0-9._-]+\.testnet$/i.test(owner)) {
-    alert("Owner account should look like alice.testnet");
-    return;
-  }
-  if (!/^[a-z0-9._-]+\.testnet$/i.test(vesselContractId)) {
-    alert("Vessel contract id should be a testnet account id.");
     return;
   }
 
@@ -248,5 +277,33 @@ async function copyToClipboard(text) {
   }
 }
 
+async function initWallet() {
+  const keyStore = new keyStores.BrowserLocalStorageKeyStore();
+  const near = await connect({
+    networkId: NETWORK_ID,
+    nodeUrl: RPC_URL,
+    walletUrl: WALLET_URL,
+    helperUrl: HELPER_URL,
+    keyStore,
+    headers: {}
+  });
+  wallet = new WalletConnection(near, "keelbase-pages");
+  syncWalletUi(wallet.isSignedIn() ? wallet.getAccountId() : "");
+}
+
+function syncWalletUi(accountId) {
+  connectedAccountId = accountId || "";
+  ownerInput.value = connectedAccountId;
+  contractInput.value = connectedAccountId;
+  if (connectedAccountId) {
+    walletStatusEl.textContent = `Wallet: ${connectedAccountId}`;
+    connectWalletBtn.textContent = "Wallet Connected";
+  } else {
+    walletStatusEl.textContent = "Wallet: not connected";
+    connectWalletBtn.textContent = "Connect NEAR Wallet";
+  }
+}
+
+await initWallet();
 loadData();
 setInterval(loadData, REFRESH_MS);

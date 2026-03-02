@@ -52,6 +52,13 @@
         <p class="subtle">
           Users deploy their own contract with their wallet/account. Then we register it in low-balance alpha mode.
         </p>
+        <div class="wallet-row">
+          <p id="walletStatus" class="wallet-status">Wallet: not connected</p>
+          <div class="wallet-actions">
+            <button id="connectWalletBtn" type="button">Connect NEAR Wallet</button>
+            <button id="disconnectWalletBtn" type="button" class="ghost">Disconnect</button>
+          </div>
+        </div>
         <form id="onboardForm" class="form-grid">
           <label>
             Vessel Slug
@@ -59,11 +66,11 @@
           </label>
           <label>
             Owner Account
-            <input id="ownerInput" type="text" placeholder="alice.testnet" required />
+            <input id="ownerInput" type="text" placeholder="Connect wallet first" readonly />
           </label>
           <label>
             Vessel Contract ID
-            <input id="contractInput" type="text" placeholder="alice.testnet (or custom subaccount)" />
+            <input id="contractInput" type="text" placeholder="Auto-filled from wallet" readonly />
           </label>
           <button id="generateBtn" type="submit">Generate Launch Steps</button>
         </form>
