@@ -1,4 +1,8 @@
-export const RPC_URL = "https://rpc.testnet.near.org";
+export const RPC_URLS = [
+  "https://test.rpc.fastnear.com",
+  "https://rpc.testnet.near.org"
+];
+export const RPC_URL = RPC_URLS[0];
 export const CONTRACT_ID = "coord2-1772411670-keelbase.testnet";
 export const CEO_ACCOUNT = "ceo.coord2-1772411670-keelbase.testnet";
 export const NETWORK_ID = "testnet";
@@ -8,31 +12,40 @@ export const CHAT_API_BASE_URL = "https://keelbase-platform-internal-production.
 export const LOCAL_MEMORY_PREFIX = "keelbase.chat.v1";
 
 export async function rpcView(methodName, args) {
-  const res = await fetch(RPC_URL, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      jsonrpc: "2.0",
-      id: "keelbase-pages",
-      method: "query",
-      params: {
-        request_type: "call_function",
-        finality: "final",
-        account_id: CONTRACT_ID,
-        method_name: methodName,
-        args_base64: btoa(JSON.stringify(args))
-      }
-    })
+  const requestBody = JSON.stringify({
+    jsonrpc: "2.0",
+    id: "keelbase-pages",
+    method: "query",
+    params: {
+      request_type: "call_function",
+      finality: "final",
+      account_id: CONTRACT_ID,
+      method_name: methodName,
+      args_base64: btoa(JSON.stringify(args))
+    }
   });
 
-  const json = await res.json();
-  if (json.error) {
-    throw new Error(json.error.message || "RPC error");
+  let lastError = null;
+  for (const rpcUrl of RPC_URLS) {
+    try {
+      const res = await fetch(rpcUrl, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: requestBody
+      });
+      const json = await res.json();
+      if (json.error) {
+        throw new Error(json.error.message || `RPC error from ${rpcUrl}`);
+      }
+      const bytes = json?.result?.result || [];
+      const text = new TextDecoder().decode(new Uint8Array(bytes));
+      return JSON.parse(text);
+    } catch (err) {
+      lastError = err;
+    }
   }
 
-  const bytes = json?.result?.result || [];
-  const text = new TextDecoder().decode(new Uint8Array(bytes));
-  return JSON.parse(text);
+  throw new Error(lastError instanceof Error ? lastError.message : "RPC request failed");
 }
 
 export function escapeHtml(input) {
