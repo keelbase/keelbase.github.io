@@ -21,6 +21,7 @@ const KEELBASE_RUNTIME_CHANNEL = "keelbase-runtime-v1";
 const FLOW_PHASE_BOOTSTRAP = "bootstrap";
 const FLOW_PHASE_FULL = "full";
 const KEELBASE_WALLET_AUTH_KEY = "keelbase-pages_wallet_auth_key";
+const KEELBASE_CHAT_API_BASE_URL = "https://keelbase-platform-internal-production.up.railway.app";
 
 async function loadAppsConfig(){
   try{
@@ -482,6 +483,8 @@ function mountOriginalClippyAssistant(){
   const input = root.querySelector(".clippy-input");
   const openTalkBtn = root.querySelector("[data-clippy-open-talk]");
   const log = root.querySelector(".clippy-log");
+  const sendBtn = root.querySelector(".clippy-send");
+  const clippyHistory = [];
 
   body.style.touchAction = "none";
   if (bubble) bubble.style.zIndex = "2";
@@ -633,11 +636,80 @@ function mountOriginalClippyAssistant(){
   function openTalkWindowWithMessage(message){
     window.dispatchEvent(new CustomEvent("hedgey:open-app", { detail: { appId: "keelbaseTalkAgent" } }));
     if (message) {
-      const line = document.createElement("div");
-      line.className = "clippy-line";
-      line.innerHTML = `<strong>You:</strong> ${message}`;
-      log?.appendChild(line);
-      log.scrollTop = log.scrollHeight;
+      appendLogLine("You", message);
+    }
+  }
+
+  function appendLogLine(who, text){
+    const line = document.createElement("div");
+    line.className = "clippy-line";
+    line.innerHTML = `<strong>${escapeHtml(who)}:</strong> ${escapeHtml(text)}`;
+    log?.appendChild(line);
+    if (log) log.scrollTop = log.scrollHeight;
+  }
+
+  function getActiveVesselForClippy(){
+    const state = window.__keelbaseRuntimeState;
+    const vessels = Array.isArray(state?.vessels) ? state.vessels : [];
+    if (!vessels.length) return null;
+    return vessels[0];
+  }
+
+  async function sendClippyMessageToLiaison(message){
+    const vessel = getActiveVesselForClippy();
+    if (!vessel?.slug) {
+      appendLogLine("Hitomi", "No vessel is registered yet. Please create a vessel first.");
+      return;
+    }
+
+    const accountId = String(localStorage.getItem(KEELBASE_WALLET_AUTH_KEY) || "").trim();
+    appendLogLine("You", message);
+    clippyHistory.push({ role: "user", content: message });
+    while (clippyHistory.length > 60) clippyHistory.shift();
+
+    if (sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.textContent = "Sending";
+    }
+    appendLogLine("Hitomi", "Thinking...");
+
+    try {
+      const res = await fetch(`${KEELBASE_CHAT_API_BASE_URL}/api/chat`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          vesselSlug: vessel.slug,
+          crewRole: "liaison",
+          accountId,
+          message,
+          history: clippyHistory.slice(-12)
+        })
+      });
+      const json = await res.json();
+      if (!res.ok || !json?.ok) {
+        throw new Error(json?.error || `chat request failed (${res.status})`);
+      }
+
+      const last = log?.lastElementChild;
+      if (last?.textContent?.includes("Thinking...")) {
+        last.remove();
+      }
+
+      const reply = String(json.reply || "No response.");
+      clippyHistory.push({ role: "assistant", content: reply });
+      while (clippyHistory.length > 60) clippyHistory.shift();
+      appendLogLine("Hitomi", reply);
+    } catch (error) {
+      const last = log?.lastElementChild;
+      if (last?.textContent?.includes("Thinking...")) {
+        last.remove();
+      }
+      appendLogLine("Hitomi", `I hit an error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.textContent = "Send";
+      }
     }
   }
 
@@ -658,7 +730,7 @@ function mountOriginalClippyAssistant(){
     event.preventDefault();
     const text = String(input?.value || "").trim();
     if (!text) return;
-    openTalkWindowWithMessage(text);
+    sendClippyMessageToLiaison(text).catch(() => {});
     if (input) input.value = "";
   });
 
@@ -724,6 +796,14 @@ function mountOriginalClippyAssistant(){
   requestAnimationFrame(() => {
     showBubble({ preferAbove: true });
   });
+}
+
+function escapeHtml(input){
+  return String(input)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 boot();
