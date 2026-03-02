@@ -214,6 +214,58 @@ h2 {
   color: #b7ceef;
 }
 
+.chat-form {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.chat-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+}
+
+.chat-form select,
+.chat-form textarea {
+  background: #081024;
+  border: 1px solid #2c4067;
+  border-radius: 8px;
+  color: #e6f2ff;
+  padding: 0.55rem 0.65rem;
+  font-family: "IBM Plex Mono", monospace;
+}
+
+.chat-form textarea {
+  min-height: 90px;
+  resize: vertical;
+}
+
+.chat-log {
+  margin-top: 0.7rem;
+  display: grid;
+  gap: 0.55rem;
+}
+
+.chat-msg {
+  border: 1px solid #2b3f65;
+  border-radius: 10px;
+  background: #081126;
+  padding: 0.65rem 0.75rem;
+}
+
+.chat-msg .who {
+  margin: 0 0 0.2rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.8rem;
+  color: #9dd8ff;
+}
+
+.chat-msg .text {
+  margin: 0;
+  white-space: pre-wrap;
+  color: #dbe7ff;
+}
+
 .onboard-output {
   margin-top: 1rem;
   display: grid;

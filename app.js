@@ -1,11 +1,12 @@
 import { connect, keyStores, WalletConnection } from "https://esm.sh/near-api-js@5.1.1";
 
-const RPC_URL = "https://test.rpc.fastnear.com";
+const RPC_URL = "https://rpc.testnet.near.org";
 const CONTRACT_ID = "coord2-1772411670-keelbase.testnet";
 const CEO_ACCOUNT = "ceo.coord2-1772411670-keelbase.testnet";
 const NETWORK_ID = "testnet";
 const WALLET_URL = "https://testnet.mynearwallet.com";
 const HELPER_URL = "https://helper.testnet.near.org";
+const CHAT_API_BASE_URL = "https://keelbase-platform-internal-production.up.railway.app";
 const REFRESH_MS = 30000;
 
 const statusEl = document.getElementById("status");
@@ -30,8 +31,22 @@ const connectWalletBtn = document.getElementById("connectWalletBtn");
 const disconnectWalletBtn = document.getElementById("disconnectWalletBtn");
 const walletStatusEl = document.getElementById("walletStatus");
 
+const vesselCountEl = document.getElementById("vesselCount");
+const vesselsListEl = document.getElementById("vesselsList");
+
+const chatForm = document.getElementById("chatForm");
+const chatVesselSelect = document.getElementById("chatVesselSelect");
+const chatInput = document.getElementById("chatInput");
+const chatSendBtn = document.getElementById("chatSendBtn");
+const chatStatusEl = document.getElementById("chatStatus");
+const chatLogEl = document.getElementById("chatLog");
+
 let wallet = null;
 let connectedAccountId = "";
+let latestProposals = [];
+const vesselMetaCache = new Map();
+const vesselsBySlug = new Map();
+const chatHistory = [];
 
 connectWalletBtn.addEventListener("click", async () => {
   if (!wallet) {
@@ -160,7 +175,7 @@ onboardForm.addEventListener("submit", async (event) => {
     const txHash = metaResult?.transaction?.hash || metaResult?.transaction_outcome?.id || "unknown";
     const anchorTxHash = anchorResult?.transaction?.hash || anchorResult?.transaction_outcome?.id || "unknown";
     registerResultEl.textContent = [
-      `status=registered`,
+      "status=registered",
       `slug=${slug}`,
       `ownerAccountId=${owner}`,
       `vesselContractId=${vesselContractId}`,
@@ -171,12 +186,59 @@ onboardForm.addEventListener("submit", async (event) => {
       `explorer=https://testnet.nearblocks.io/txns/${anchorTxHash}`
     ].join("\n");
     onboardOutput.classList.remove("hidden");
+    slugInput.value = "";
+    await loadData(true);
   } catch (error) {
     registerResultEl.textContent = `status=error\nmessage=${error instanceof Error ? error.message : String(error)}`;
     onboardOutput.classList.remove("hidden");
   } finally {
     submitBtn.disabled = false;
     submitBtn.textContent = "Create Vessel";
+  }
+});
+
+chatForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  const message = chatInput.value.trim();
+  const vesselSlug = chatVesselSelect.value;
+
+  if (!message) {
+    return;
+  }
+
+  appendChatMessage("user", message);
+  chatInput.value = "";
+  chatSendBtn.disabled = true;
+  chatSendBtn.textContent = "Sending...";
+  chatStatusEl.textContent = "Asking vessel agent...";
+
+  try {
+    const res = await fetch(`${CHAT_API_BASE_URL}/api/chat`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        vesselSlug,
+        accountId: connectedAccountId,
+        message,
+        history: chatHistory.slice(-8)
+      })
+    });
+
+    const json = await res.json();
+    if (!res.ok || !json?.ok) {
+      throw new Error(json?.error || `chat request failed (${res.status})`);
+    }
+
+    appendChatMessage("assistant", String(json.reply || "No response"));
+    const anchored = json.anchorProposalId ? ` anchor=${json.anchorProposalId}` : "";
+    chatStatusEl.textContent = `Live reply (${json.source || "near_ai"}) model=${json.model || "unknown"}${anchored}`;
+    await loadData(true);
+  } catch (error) {
+    appendChatMessage("assistant", `I hit an error: ${error instanceof Error ? error.message : String(error)}`);
+    chatStatusEl.textContent = "Chat failed. Check API/CORS config.";
+  } finally {
+    chatSendBtn.disabled = false;
+    chatSendBtn.textContent = "Send Message";
   }
 });
 
@@ -261,16 +323,8 @@ function renderProposals(proposals) {
   }
 
   anchorSummaryEl.textContent = latestAnchor.kind.summary || "(no summary)";
-  anchorMetaEl.textContent = `action_id=${latestAnchor.kind.action_id} • outcome=${latestAnchor.kind.outcome} • proposal_id=${latestAnchor.id}`;
+  anchorMetaEl.textContent = `action_id=${latestAnchor.kind.action_id} - outcome=${latestAnchor.kind.outcome} - proposal_id=${latestAnchor.id}`;
   return latestAnchor;
-}
-
-function escapeHtml(input) {
-  return String(input)
-    .replaceAll("&", "&amp;")
-    .replaceAll("<", "&lt;")
-    .replaceAll(">", "&gt;")
-    .replaceAll('"', "&quot;");
 }
 
 async function loadData(manual = false) {
@@ -279,17 +333,163 @@ async function loadData(manual = false) {
   try {
     const [snapshot, proposals] = await Promise.all([
       rpcView("get_state_snapshot", { account_id: CEO_ACCOUNT }),
-      rpcView("get_proposals", { from_index: 0, limit: 50 })
+      rpcView("get_proposals", { from_index: 0, limit: 120 })
     ]);
 
+    latestProposals = proposals;
     renderSnapshot(snapshot);
     const latestAnchor = renderProposals(proposals);
     updateTrafficLight(latestAnchor);
+    await renderVessels(proposals);
     statusEl.textContent = `Live at ${new Date().toLocaleTimeString()}`;
   } catch (err) {
     statusEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
     setSignal("error", "RPC ERROR", err instanceof Error ? err.message : String(err));
   }
+}
+
+async function renderVessels(proposals) {
+  const candidates = collectRegistrationAnchors(proposals);
+  const rows = [];
+
+  for (const candidate of candidates) {
+    const meta = await loadMetaByHash(candidate.metaHash);
+    const slug = normalizeSlug(String(meta?.vessel_slug || candidate.slug || ""));
+    if (!slug) continue;
+
+    rows.push({
+      slug,
+      owner: String(meta?.owner_account_id || candidate.owner || "unknown"),
+      vesselContractId: String(meta?.vessel_contract_id || candidate.owner || "unknown"),
+      mode: String(meta?.mode || "low_balance_alpha"),
+      createdAtMs: Number(meta?.created_at_ms || candidate.createdAtMs || 0),
+      metaHash: candidate.metaHash,
+      proposalId: candidate.proposalId
+    });
+  }
+
+  rows.sort((a, b) => b.createdAtMs - a.createdAtMs);
+  vesselsBySlug.clear();
+  for (const row of rows) {
+    if (!vesselsBySlug.has(row.slug)) {
+      vesselsBySlug.set(row.slug, row);
+    }
+  }
+
+  vesselsListEl.innerHTML = "";
+  if (vesselsBySlug.size === 0) {
+    vesselCountEl.textContent = "0 found";
+    const empty = document.createElement("article");
+    empty.className = "item";
+    empty.innerHTML = '<div class="line2">No vessel registrations found yet.</div>';
+    vesselsListEl.appendChild(empty);
+  } else {
+    vesselCountEl.textContent = `${vesselsBySlug.size} found`;
+    for (const vessel of vesselsBySlug.values()) {
+      const node = document.createElement("article");
+      node.className = "item";
+      const created = vessel.createdAtMs > 0 ? new Date(vessel.createdAtMs).toLocaleString() : "unknown";
+      node.innerHTML = `
+        <div class="line1">
+          <span>${escapeHtml(vessel.slug)}</span>
+          <span>${escapeHtml(vessel.mode)}</span>
+        </div>
+        <div class="line2">owner=${escapeHtml(vessel.owner)}</div>
+        <div class="line2">contract=${escapeHtml(vessel.vesselContractId)}</div>
+        <div class="line2">created=${escapeHtml(created)} - anchor=#${vessel.proposalId}</div>
+      `;
+      vesselsListEl.appendChild(node);
+    }
+  }
+
+  renderChatVesselOptions();
+}
+
+function renderChatVesselOptions() {
+  const current = chatVesselSelect.value;
+  chatVesselSelect.innerHTML = "";
+
+  const vessels = [...vesselsBySlug.values()];
+  if (vessels.length === 0) {
+    const option = document.createElement("option");
+    option.value = "";
+    option.textContent = "No vessels available";
+    chatVesselSelect.appendChild(option);
+    chatVesselSelect.disabled = true;
+    chatSendBtn.disabled = true;
+    return;
+  }
+
+  chatVesselSelect.disabled = false;
+  chatSendBtn.disabled = false;
+
+  for (const vessel of vessels) {
+    const option = document.createElement("option");
+    option.value = vessel.slug;
+    option.textContent = `${vessel.slug} (${vessel.owner})`;
+    chatVesselSelect.appendChild(option);
+  }
+
+  if (current && vesselsBySlug.has(current)) {
+    chatVesselSelect.value = current;
+  }
+}
+
+function collectRegistrationAnchors(proposals) {
+  const anchors = [];
+  for (const proposal of proposals) {
+    const kind = proposal?.kind || {};
+    const isAnchor = kind.type === "ANCHOR_LOG";
+    const isDelegation = String(kind.category || "").toUpperCase() === "DELEGATION";
+    const actionId = String(kind.action_id || "");
+    const looksLikeRegistration = actionId.startsWith("reg_");
+    if (!isAnchor || !isDelegation || !looksLikeRegistration) continue;
+
+    const summary = String(kind.summary || proposal.description || "");
+    const summaryMatch = summary.match(/Registered vessel\s+([a-z0-9-]+)\s+for\s+([a-z0-9._-]+)/i);
+
+    anchors.push({
+      proposalId: Number(proposal.id || 0),
+      createdAtMs: Number(proposal.created_at || 0),
+      slug: normalizeSlug(String(summaryMatch?.[1] || "")),
+      owner: String(summaryMatch?.[2] || ""),
+      metaHash: String(kind.content_hash || "")
+    });
+  }
+  return anchors;
+}
+
+async function loadMetaByHash(hash) {
+  if (!hash) return null;
+  if (vesselMetaCache.has(hash)) {
+    return vesselMetaCache.get(hash);
+  }
+  const raw = await rpcView("get_blob", { hash }).catch(() => null);
+  if (!raw || typeof raw !== "string") {
+    vesselMetaCache.set(hash, null);
+    return null;
+  }
+  try {
+    const parsed = JSON.parse(raw);
+    vesselMetaCache.set(hash, parsed);
+    return parsed;
+  } catch {
+    vesselMetaCache.set(hash, null);
+    return null;
+  }
+}
+
+function appendChatMessage(role, text) {
+  chatHistory.push({ role, content: text });
+  const node = document.createElement("article");
+  node.className = "chat-msg";
+  const who = role === "assistant" ? "Vessel Agent" : "You";
+  node.innerHTML = `
+    <p class="who">${escapeHtml(who)}</p>
+    <p class="text">${escapeHtml(text)}</p>
+  `;
+  chatLogEl.appendChild(node);
+  chatLogEl.scrollTop = chatLogEl.scrollHeight;
 }
 
 function updateTrafficLight(latestAnchor) {
@@ -336,20 +536,6 @@ function normalizeSlug(value) {
     .replace(/^-|-$/g, "");
 }
 
-async function copyToClipboard(text) {
-  if (!text) return;
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
-    const helper = document.createElement("textarea");
-    helper.value = text;
-    document.body.appendChild(helper);
-    helper.select();
-    document.execCommand("copy");
-    helper.remove();
-  }
-}
-
 async function walletCall(methodName, args) {
   return wallet.account().functionCall({
     contractId: CONTRACT_ID,
@@ -364,6 +550,14 @@ async function sha256Hex(text) {
   const bytes = new TextEncoder().encode(text);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+function escapeHtml(input) {
+  return String(input)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;");
 }
 
 async function initWallet() {
@@ -394,5 +588,5 @@ function syncWalletUi(accountId) {
 }
 
 await initWallet();
-loadData();
+await loadData();
 setInterval(loadData, REFRESH_MS);
