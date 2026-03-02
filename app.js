@@ -4,7 +4,7 @@ const RPC_URL = "https://test.rpc.fastnear.com";
 const CONTRACT_ID = "coord2-1772411670-keelbase.testnet";
 const CEO_ACCOUNT = "ceo.coord2-1772411670-keelbase.testnet";
 const NETWORK_ID = "testnet";
-const WALLET_URL = "https://wallet.testnet.near.org";
+const WALLET_URL = "https://testnet.mynearwallet.com";
 const HELPER_URL = "https://helper.testnet.near.org";
 const REFRESH_MS = 30000;
 
@@ -45,10 +45,11 @@ connectWalletBtn.addEventListener("click", async () => {
     syncWalletUi(wallet.getAccountId());
     return;
   }
-  wallet.requestSignIn({
-    successUrl: window.location.href,
-    failureUrl: window.location.href
-  });
+  try {
+    wallet.requestSignIn(CONTRACT_ID, "Keelbase", window.location.href, window.location.href);
+  } catch (error) {
+    alert(`Wallet redirect failed: ${error instanceof Error ? error.message : String(error)}`);
+  }
 });
 
 disconnectWalletBtn.addEventListener("click", () => {
