@@ -53,6 +53,69 @@ header h1 {
   color: var(--muted);
 }
 
+.signal {
+  margin-bottom: 1rem;
+  background: #0a142a;
+  border: 1px solid #2b4268;
+  border-radius: 12px;
+  padding: 0.8rem 1rem;
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+}
+
+.signal-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: #60a5fa;
+  box-shadow: 0 0 0 5px #60a5fa20;
+}
+
+.signal-title {
+  margin: 0;
+  font-family: "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  font-size: 0.85rem;
+}
+
+.signal-note {
+  margin: 0.2rem 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.signal-live {
+  border-color: #2e6d58;
+}
+
+.signal-live .signal-dot {
+  background: #34d399;
+  box-shadow: 0 0 0 5px #34d39920;
+}
+
+.signal-fallback {
+  border-color: #8a6735;
+}
+
+.signal-fallback .signal-dot {
+  background: #fbbf24;
+  box-shadow: 0 0 0 5px #fbbf2420;
+}
+
+.signal-error {
+  border-color: #7b3142;
+}
+
+.signal-error .signal-dot {
+  background: #fb7185;
+  box-shadow: 0 0 0 5px #fb718520;
+}
+
+.signal-sync {
+  border-color: #35537f;
+}
+
 .cards {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

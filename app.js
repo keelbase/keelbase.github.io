@@ -8,6 +8,9 @@ const snapshotEl = document.getElementById("snapshot");
 const proposalsEl = document.getElementById("proposals");
 const anchorSummaryEl = document.getElementById("anchorSummary");
 const anchorMetaEl = document.getElementById("anchorMeta");
+const signalBoxEl = document.getElementById("signalBox");
+const signalTitleEl = document.getElementById("signalTitle");
+const signalNoteEl = document.getElementById("signalNote");
 
 const refreshBtn = document.getElementById("refreshBtn");
 refreshBtn.addEventListener("click", () => loadData(true));
@@ -89,11 +92,12 @@ function renderProposals(proposals) {
   if (!latestAnchor) {
     anchorSummaryEl.textContent = "No anchor log yet.";
     anchorMetaEl.textContent = "";
-    return;
+    return null;
   }
 
   anchorSummaryEl.textContent = latestAnchor.kind.summary || "(no summary)";
   anchorMetaEl.textContent = `action_id=${latestAnchor.kind.action_id} • outcome=${latestAnchor.kind.outcome} • proposal_id=${latestAnchor.id}`;
+  return latestAnchor;
 }
 
 function escapeHtml(input) {
@@ -106,6 +110,7 @@ function escapeHtml(input) {
 
 async function loadData(manual = false) {
   statusEl.textContent = manual ? "Refreshing..." : "Syncing...";
+  setSignal("sync", "SYNCING", "Fetching on-chain data...");
   try {
     const [snapshot, proposals] = await Promise.all([
       rpcView("get_state_snapshot", { account_id: CEO_ACCOUNT }),
@@ -113,11 +118,48 @@ async function loadData(manual = false) {
     ]);
 
     renderSnapshot(snapshot);
-    renderProposals(proposals);
+    const latestAnchor = renderProposals(proposals);
+    updateTrafficLight(latestAnchor);
     statusEl.textContent = `Live at ${new Date().toLocaleTimeString()}`;
   } catch (err) {
     statusEl.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+    setSignal("error", "RPC ERROR", err instanceof Error ? err.message : String(err));
   }
+}
+
+function updateTrafficLight(latestAnchor) {
+  if (!latestAnchor) {
+    setSignal("fallback", "NO ANCHOR YET", "No AnchorLog found yet. Run a cycle to begin.");
+    return;
+  }
+
+  const summary = String(latestAnchor.kind?.summary || "").toLowerCase();
+  const outcome = String(latestAnchor.kind?.outcome || "").toLowerCase();
+  const createdAt = Number(latestAnchor.created_at || 0);
+  const isStale = createdAt > 0 && Date.now() - createdAt > 10 * 60 * 1000;
+  const isFallback = summary.includes("fallback");
+  const isLive = !isFallback && (outcome === "executed" || outcome === "completed" || outcome === "logged");
+
+  if (isStale) {
+    setSignal("fallback", "STALE", "No recent anchor activity in the last 10 minutes.");
+    return;
+  }
+  if (isFallback) {
+    setSignal("fallback", "AI FALLBACK", "Cycle ran with fallback behavior. Check inference output.");
+    return;
+  }
+  if (isLive) {
+    setSignal("live", "AI LIVE", "AI decisions are landing on-chain with fresh anchors.");
+    return;
+  }
+
+  setSignal("fallback", "UNKNOWN STATE", "Anchor present, but state needs manual review.");
+}
+
+function setSignal(kind, title, note) {
+  signalBoxEl.className = `signal signal-${kind}`;
+  signalTitleEl.textContent = title;
+  signalNoteEl.textContent = note;
 }
 
 loadData();
