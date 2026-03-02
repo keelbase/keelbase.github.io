@@ -1,0 +1,91 @@
+:root {
+  --bg: #060b17;
+  --panel: #0f1730cc;
+  --edge: #2d4a7f;
+  --text: #e8eefc;
+  --muted: #8fa4d1;
+  --accent: #67e8f9;
+  --good: #33d18f;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  color: var(--text);
+  font-family: "Space Grotesk", sans-serif;
+  background: radial-gradient(110% 120% at 10% 0%, #173067 0%, var(--bg) 62%);
+}
+.wrap { padding: 0.8rem; }
+.card {
+  background: var(--panel);
+  border: 1px solid var(--edge);
+  border-radius: 12px;
+  padding: 0.8rem;
+}
+h1 { margin: 0 0 0.5rem; font-size: 1rem; }
+.meta { margin: 0; color: var(--muted); font-size: 0.84rem; }
+.kv { margin: 0; display: grid; grid-template-columns: 1fr auto; gap: 0.35rem 0.9rem; }
+.kv dt { color: var(--muted); }
+.list { display: grid; gap: 0.55rem; }
+.item {
+  border: 1px solid #2b3f65;
+  border-radius: 10px;
+  padding: 0.65rem;
+  background: #0a1227;
+}
+.line1 {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-family: "IBM Plex Mono", monospace;
+  color: #b7c9f0;
+  font-size: 0.78rem;
+}
+.line2 { margin-top: 0.3rem; color: #dbe7ff; font-size: 0.88rem; }
+button {
+  border: 1px solid #2de3ff80;
+  border-radius: 999px;
+  background: linear-gradient(135deg, #0ea5e9, #22d3ee);
+  color: #031321;
+  font-weight: 700;
+  padding: 0.42rem 0.85rem;
+  cursor: pointer;
+}
+button.ghost { background: transparent; color: #a9c2e5; border-color: #355481; }
+.form-grid { display: grid; gap: 0.6rem; }
+.form-grid label { display: grid; gap: 0.3rem; font-size: 0.86rem; }
+input, select, textarea {
+  background: #081024;
+  border: 1px solid #2c4067;
+  border-radius: 8px;
+  color: #e6f2ff;
+  padding: 0.5rem 0.62rem;
+  font-family: "IBM Plex Mono", monospace;
+}
+input[readonly] { background: #0a1530; color: #b7ceef; }
+textarea { min-height: 90px; resize: vertical; }
+pre {
+  margin: 0.5rem 0 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.78rem;
+  color: #b8d8ff;
+  font-family: "IBM Plex Mono", monospace;
+}
+.chat-msg {
+  border: 1px solid #2b3f65;
+  border-radius: 10px;
+  background: #081126;
+  padding: 0.6rem 0.75rem;
+}
+.chat-msg .who {
+  margin: 0 0 0.2rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.78rem;
+  color: #9dd8ff;
+}
+.chat-msg .text { margin: 0; white-space: pre-wrap; color: #dbe7ff; font-size: 0.86rem; }
+.chat-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.status-good { color: #34d399; }
+.status-warn { color: #fbbf24; }
+.status-bad { color: #fb7185; }

@@ -4,13 +4,13 @@
     { "id": "browser", "title": "Browser", "section": "system", "category": "system" },
     { "id": "notes", "title": "Notes", "section": "system", "category": "system" },
 
-    { "id": "keelbaseSnapshot", "title": "Snapshot", "url": "/dashboard/?section=snapshot", "section": "keelbase", "category": "keelbase" },
-    { "id": "keelbaseLatestAnchor", "title": "Latest AI Anchor", "url": "/dashboard/?section=latest-anchor", "section": "keelbase", "category": "keelbase" },
-    { "id": "keelbaseState", "title": "State", "url": "/dashboard/?section=state", "section": "keelbase", "category": "keelbase" },
-    { "id": "keelbaseRecentProposals", "title": "Recent Proposals", "url": "/dashboard/?section=recent-proposals", "section": "keelbase", "category": "keelbase" },
-    { "id": "keelbaseLaunchVessel", "title": "Launch New Vessel", "url": "/dashboard/?section=launch-new-vessel", "section": "keelbase", "category": "keelbase" },
-    { "id": "keelbaseCreatedVessels", "title": "Created Vessels", "url": "/dashboard/?section=created-vessels", "section": "keelbase", "category": "keelbase" },
-    { "id": "keelbaseTalkAgent", "title": "Talk to a Vessel Agent", "url": "/dashboard/?section=talk-vessel-agent", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseSnapshot", "title": "Snapshot", "url": "/apps/keelbase-snapshot/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseLatestAnchor", "title": "Latest AI Anchor", "url": "/apps/keelbase-latest-anchor/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseState", "title": "State", "url": "/apps/keelbase-state/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseRecentProposals", "title": "Recent Proposals", "url": "/apps/keelbase-recent-proposals/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseLaunchVessel", "title": "Launch New Vessel", "url": "/apps/keelbase-launch-vessel/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseCreatedVessels", "title": "Created Vessels", "url": "/apps/keelbase-created-vessels/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseTalkAgent", "title": "Talk to a Vessel Agent", "url": "/apps/keelbase-talk-agent/", "section": "keelbase", "category": "keelbase" },
     { "id": "keelbaseDashboard", "title": "Keelbase Dashboard", "url": "/dashboard/", "section": "keelbase", "category": "keelbase" }
   ]
 }

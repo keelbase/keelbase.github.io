@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Talk to a Vessel Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../keelbase-shared/styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>Talk to a Vessel Agent</h1>
+      <p id="activeLabel" class="meta">Active vessel: none</p>
+
+      <div class="form-grid" style="margin:0.6rem 0;">
+        <label>
+          Vessel
+          <select id="vesselSelect"></select>
+        </label>
+        <label>
+          Role
+          <select id="roleSelect">
+            <option value="liaison">Liaison</option>
+            <option value="ceo">CEO</option>
+            <option value="ops">Ops</option>
+            <option value="marketing">Marketing</option>
+            <option value="finance">Finance</option>
+            <option value="tech">Tech</option>
+          </select>
+        </label>
+      </div>
+
+      <form id="chatForm" class="form-grid">
+        <label>
+          Message
+          <textarea id="messageInput" placeholder="Ask your vessel agent..."></textarea>
+        </label>
+        <div class="chat-actions">
+          <button id="sendBtn" type="submit">Send Message</button>
+          <button id="clearBtn" type="button" class="ghost">Clear Local Memory</button>
+          <button id="reloadBtn" type="button" class="ghost">Reload Vessels</button>
+        </div>
+      </form>
+
+      <p id="status" class="meta"></p>
+      <p id="memoryInfo" class="meta"></p>
+      <section id="chatLog" class="list" style="margin-top:0.6rem;"></section>
+    </section>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

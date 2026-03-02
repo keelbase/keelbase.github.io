@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Launch New Vessel</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../keelbase-shared/styles.css" />
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>Launch New Vessel</h1>
+      <p id="walletStatus" class="meta">Wallet: not connected</p>
+      <div class="chat-actions" style="margin:0.5rem 0 0.75rem;">
+        <button id="connectWalletBtn" type="button">Connect NEAR Wallet</button>
+        <button id="disconnectWalletBtn" type="button" class="ghost">Disconnect</button>
+      </div>
+
+      <form id="launchForm" class="form-grid">
+        <label>
+          Vessel Slug
+          <input id="slugInput" required maxlength="32" placeholder="acme-labs" />
+        </label>
+        <label>
+          Owner Account
+          <input id="ownerInput" readonly placeholder="Connect wallet first" />
+        </label>
+        <label>
+          Vessel Contract ID
+          <input id="contractInput" readonly placeholder="Auto-filled from wallet" />
+        </label>
+        <button id="createBtn" type="submit">Create Vessel</button>
+      </form>
+
+      <pre id="resultBox"></pre>
+    </section>
+  </main>
+  <script type="module" src="./app.js"></script>
+</body>
+</html>
