@@ -25,10 +25,7 @@ const onboardOutput = document.getElementById("onboardOutput");
 const slugInput = document.getElementById("slugInput");
 const ownerInput = document.getElementById("ownerInput");
 const contractInput = document.getElementById("contractInput");
-const deployCmdEl = document.getElementById("deployCmd");
-const registerCmdEl = document.getElementById("registerCmd");
-const copyDeployBtn = document.getElementById("copyDeployBtn");
-const copyRegisterBtn = document.getElementById("copyRegisterBtn");
+const registerResultEl = document.getElementById("registerResult");
 const connectWalletBtn = document.getElementById("connectWalletBtn");
 const disconnectWalletBtn = document.getElementById("disconnectWalletBtn");
 const walletStatusEl = document.getElementById("walletStatus");
@@ -60,6 +57,7 @@ disconnectWalletBtn.addEventListener("click", () => {
 });
 
 onboardForm.addEventListener("submit", (event) => {
+onboardForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   if (!connectedAccountId) {
     alert("Please connect a NEAR testnet wallet first.");
@@ -74,38 +72,113 @@ onboardForm.addEventListener("submit", (event) => {
     return;
   }
 
-  const deployCmd = [
-    "near deploy",
-    vesselContractId,
-    "../../target/near/coordination_contract/coordination_contract.wasm",
-    "--initFunction new",
-    "--initArgs '{}'",
-    `--accountId ${owner}`,
-    "--networkId testnet"
-  ].join(" ");
+  const submitBtn = document.getElementById("generateBtn");
+  submitBtn.disabled = true;
+  submitBtn.textContent = "Creating...";
 
-  const registerCmd = [
-    "npm run ceo:register-vessel --",
-    `--slug=${slug}`,
-    `--owner-account=${owner}`,
-    `--vessel-contract-id=${vesselContractId}`
-  ].join(" ");
+  try {
+    const metaDocId = `vessel:${slug}:meta`;
+    const existingMeta = await rpcView("get_active_document", { document_id: metaDocId }).catch(() => null);
+    if (existingMeta) {
+      throw new Error(`Vessel slug already registered: ${slug}`);
+    }
 
-  deployCmdEl.textContent = deployCmd;
-  registerCmdEl.textContent = registerCmd;
-  onboardOutput.classList.remove("hidden");
-});
+    const now = Date.now();
+    const identityDoc = JSON.stringify(
+      {
+        document_id: "ceo_identity",
+        vessel_slug: slug,
+        owner_account_id: owner,
+        vessel_contract_id: vesselContractId,
+        seeded_at_ms: now,
+        role: "CEO"
+      },
+      null,
+      2
+    );
 
-copyDeployBtn.addEventListener("click", async () => {
-  await copyToClipboard(deployCmdEl.textContent || "");
-  copyDeployBtn.textContent = "Copied";
-  setTimeout(() => (copyDeployBtn.textContent = "Copy"), 1000);
-});
+    const operationsDoc = JSON.stringify(
+      {
+        document_id: "ceo_operations",
+        vessel_slug: slug,
+        owner_account_id: owner,
+        vessel_contract_id: vesselContractId,
+        seeded_at_ms: now,
+        mode: "low_balance_alpha",
+        rules: {
+          allowlisted_actions_only: true,
+          max_auto_transfer_near: "0",
+          escalation_required: true
+        }
+      },
+      null,
+      2
+    );
 
-copyRegisterBtn.addEventListener("click", async () => {
-  await copyToClipboard(registerCmdEl.textContent || "");
-  copyRegisterBtn.textContent = "Copied";
-  setTimeout(() => (copyRegisterBtn.textContent = "Copy"), 1000);
+    const identityHash = await sha256Hex(identityDoc);
+    const operationsHash = await sha256Hex(operationsDoc);
+
+    await walletCall("store_blob", { data: identityDoc });
+    await walletCall("store_blob", { data: operationsDoc });
+
+    await walletCall("set_active_document", { document_id: `vessel:${slug}:ceo_identity`, hash: identityHash });
+    await walletCall("set_active_document", { document_id: `vessel:${slug}:ceo_operations`, hash: operationsHash });
+
+    const metaDoc = JSON.stringify(
+      {
+        vessel_slug: slug,
+        owner_account_id: owner,
+        vessel_contract_id: vesselContractId,
+        mode: "low_balance_alpha",
+        created_at_ms: now,
+        documents: {
+          ceo_identity_hash: identityHash,
+          ceo_operations_hash: operationsHash
+        }
+      },
+      null,
+      2
+    );
+    const metaHash = await sha256Hex(metaDoc);
+    const metaResult = await walletCall("store_blob", { data: metaDoc });
+    await walletCall("set_active_document", { document_id: metaDocId, hash: metaHash });
+
+    const anchorResult = await walletCall("add_proposal", {
+      proposal_input: {
+        kind: {
+          type: "ANCHOR_LOG",
+          action_id: `reg_${now}`,
+          category: "DELEGATION",
+          outcome: "EXECUTED",
+          content_hash: metaHash,
+          summary: `Registered vessel ${slug} for ${owner}`.slice(0, 140),
+          timestamp: now
+        },
+        description: `Registered vessel ${slug} for ${owner}`.slice(0, 140)
+      }
+    });
+
+    const txHash = metaResult?.transaction?.hash || metaResult?.transaction_outcome?.id || "unknown";
+    const anchorTxHash = anchorResult?.transaction?.hash || anchorResult?.transaction_outcome?.id || "unknown";
+    registerResultEl.textContent = [
+      `status=registered`,
+      `slug=${slug}`,
+      `ownerAccountId=${owner}`,
+      `vesselContractId=${vesselContractId}`,
+      `metaDocId=${metaDocId}`,
+      `metaHash=${metaHash}`,
+      `txHash=${txHash}`,
+      `anchorTxHash=${anchorTxHash}`,
+      `explorer=https://testnet.nearblocks.io/txns/${anchorTxHash}`
+    ].join("\n");
+    onboardOutput.classList.remove("hidden");
+  } catch (error) {
+    registerResultEl.textContent = `status=error\nmessage=${error instanceof Error ? error.message : String(error)}`;
+    onboardOutput.classList.remove("hidden");
+  } finally {
+    submitBtn.disabled = false;
+    submitBtn.textContent = "Create Vessel";
+  }
 });
 
 document.getElementById("contractId").textContent = CONTRACT_ID;
@@ -276,6 +349,22 @@ async function copyToClipboard(text) {
     document.execCommand("copy");
     helper.remove();
   }
+}
+
+async function walletCall(methodName, args) {
+  return wallet.account().functionCall({
+    contractId: CONTRACT_ID,
+    methodName,
+    args,
+    gas: "100000000000000",
+    attachedDeposit: "0"
+  });
+}
+
+async function sha256Hex(text) {
+  const bytes = new TextEncoder().encode(text);
+  const digest = await crypto.subtle.digest("SHA-256", bytes);
+  return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }
 
 async function initWallet() {

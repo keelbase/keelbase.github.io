@@ -50,7 +50,7 @@
       <section class="card">
         <h2>Launch New Vessel (User-Owned Alpha)</h2>
         <p class="subtle">
-          Users deploy their own contract with their wallet/account. Then we register it in low-balance alpha mode.
+          Connect wallet, enter vessel name, press create. Registration is signed on-chain from your wallet.
         </p>
         <div class="wallet-row">
           <p id="walletStatus" class="wallet-status">Wallet: not connected</p>
@@ -72,22 +72,14 @@
             Vessel Contract ID
             <input id="contractInput" type="text" placeholder="Auto-filled from wallet" readonly />
           </label>
-          <button id="generateBtn" type="submit">Generate Launch Steps</button>
+          <button id="generateBtn" type="submit">Create Vessel</button>
         </form>
         <div id="onboardOutput" class="onboard-output hidden">
           <article class="step">
             <div class="step-head">
-              <h3>Step 1: User Deploy Command</h3>
-              <button id="copyDeployBtn" type="button">Copy</button>
+              <h3>Registration Result</h3>
             </div>
-            <pre id="deployCmd"></pre>
-          </article>
-          <article class="step">
-            <div class="step-head">
-              <h3>Step 2: Registration Command</h3>
-              <button id="copyRegisterBtn" type="button">Copy</button>
-            </div>
-            <pre id="registerCmd"></pre>
+            <pre id="registerResult"></pre>
           </article>
         </div>
       </section>
