@@ -2316,8 +2316,13 @@ export function createWindowManager({ desktop, iconLayer, templates, openWindows
     const { dw, usableH } = getLayoutBounds();
     const gap = 8;
     const count = visible.length;
-    const cols = Math.max(1, Math.ceil(Math.sqrt((count * dw) / Math.max(1, usableH))));
-    const rows = Math.max(1, Math.ceil(count / cols));
+    const isPortrait = usableH > dw;
+    const cols = isPortrait
+      ? Math.max(1, Math.ceil(count / Math.max(1, Math.ceil(Math.sqrt((count * usableH) / Math.max(1, dw))))))
+      : Math.max(1, Math.ceil(Math.sqrt((count * dw) / Math.max(1, usableH))));
+    const rows = isPortrait
+      ? Math.max(1, Math.ceil(Math.sqrt((count * usableH) / Math.max(1, dw))))
+      : Math.max(1, Math.ceil(count / cols));
     const maxCellW = Math.max(LAYOUT_MIN_W, dw - gap * 2);
     const maxCellH = Math.max(LAYOUT_MIN_H, usableH - gap * 2);
     const cellW = clamp(Math.floor((dw - gap * (cols + 1)) / cols), LAYOUT_MIN_W, maxCellW);

@@ -1,4 +1,9 @@
 import { DARK_MODE_KEY, THEME_KEY, WALLPAPER_KEY } from "./constants.js";
+const DEFAULT_WALLPAPER_APPLIED_KEY = "hedgeyos_default_wallpaper_applied_v1";
+const DEFAULT_WALLPAPER = {
+  name: "Keelpaper",
+  dataUrl: "/keelpaper.jpg",
+};
 
 export function initThemeToggle({ button }){
   function apply(on){
@@ -68,7 +73,10 @@ export function applyWallpaper(wallpaper, { persist = true } = {}){
   let record = null;
   if (wallpaper && typeof wallpaper === "object") {
     const dataUrl = String(wallpaper.dataUrl || "").trim();
-    if (dataUrl.startsWith("data:image/")) {
+    const isDataImage = dataUrl.startsWith("data:image/");
+    const isRootRelativeImage = /^\/[^?#]+\.(png|jpe?g|gif|webp|svg)$/i.test(dataUrl);
+    const isLocalRelativeImage = /^(?:\.\/)?[^?#]+\.(png|jpe?g|gif|webp|svg)$/i.test(dataUrl);
+    if (isDataImage || isRootRelativeImage || isLocalRelativeImage) {
       record = {
         name: String(wallpaper.name || "Wallpaper").trim() || "Wallpaper",
         dataUrl,
@@ -112,5 +120,18 @@ export function initThemeState(){
   } else {
     applyTheme(getTheme(), { persist: false });
   }
-  applyWallpaper(getWallpaper(), { persist: false });
+
+  const savedWallpaper = getWallpaper();
+  if (savedWallpaper) {
+    applyWallpaper(savedWallpaper, { persist: false });
+    return;
+  }
+
+  const defaultWallpaperApplied = localStorage.getItem(DEFAULT_WALLPAPER_APPLIED_KEY) === "1";
+  if (!defaultWallpaperApplied) {
+    applyWallpaper(DEFAULT_WALLPAPER, { persist: true });
+    localStorage.setItem(DEFAULT_WALLPAPER_APPLIED_KEY, "1");
+    return;
+  }
+  applyWallpaper(null, { persist: false });
 }
