@@ -111,241 +111,192 @@ Because this repo was forked from agent1c shell foundations, legacy naming and l
 
 For this repo, architecture and roadmap decisions should be evaluated against the 5-doc spec set above. If behavior differs, treat docs as target and current code as transitional unless explicitly superseded in writing.
 
-## Parity Implementation Strategy (Max 5 Phases)
+## Parity Implementation Strategy (Cofounder Version, Max 5 Phases)
 
-This is the recommended path from current prototype to spec parity, ordered from low-hanging fruit to deeper architectural work.
+This version is intentionally pragmatic: ship founder-visible outcomes first, then deepen architecture.
 
-### Phase 1: UX and Contract-Surface Parity (Low Hanging Fruit)
+### Phase 1: Contract/UI Alignment and Reliability
 
-Goal: align frontend semantics with current backend contract fields before changing core protocol logic.
+Scope:
+- Normalize frontend contract consumption for `/api/overview` and `/api/chat`.
+- Show explicit `vessel_state`, escalation status, and anchor lifecycle in existing windows.
+- Ensure Talk window and Hitomi show the same chat metadata (`anchorEnabled`, role routing, source/model).
 
-Current hooks to use:
-- Frontend runtime feed: `js/keelbase-runtime.js:startKeelbaseRuntime()`
-- Window state rendering:
-  - `apps/keelbase-snapshot/app.js:renderState()`
-  - `apps/keelbase-recent-proposals/app.js:renderState()`
-  - `apps/keelbase-created-vessels/app.js:renderState()`
-  - `apps/keelbase-talk-agent/app.js:renderRuntimeState()`
-- Chat wiring:
-  - `apps/keelbase-talk-agent/app.js` submit handler
-  - `js/main.js:sendClippyMessageToLiaison()`
-- Backend response surfaces:
-  - `apps/ceo-cli/src/services/httpServer.ts:/api/overview`
-  - `apps/ceo-cli/src/services/httpServer.ts:/api/chat`
+Current code anchors:
+- `js/keelbase-runtime.js:startKeelbaseRuntime()`
+- `apps/keelbase-snapshot/app.js:renderState()`
+- `apps/keelbase-talk-agent/app.js` submit + state render
+- `js/main.js:sendClippyMessageToLiaison()`
+- `apps/ceo-cli/src/services/httpServer.ts` `/api/overview` and `/api/chat`
 
-Architectural move:
-- Introduce a typed frontend runtime contract layer so every window consumes the same normalized shape.
-- Keep one reader path (`/api/overview`) and one conversation path (`/api/chat`), but normalize data before UI.
+Docx intent vs realistic path:
+- Docx intent: full semantic contract from day one.
+- Realistic now: create one normalization layer first (`apps/keelbase-shared/api-contract.js`) so all windows render consistent state before adding new product surfaces.
 
-Proposed additions:
-- `apps/keelbase-shared/api-contract.js`
-  - `normalizeOverviewPayload(raw)`
-  - `normalizeChatPayload(raw)`
-  - `deriveUiState(overview)`
-- `apps/keelbase-shared/status-derivers.js`
-  - `deriveVesselStateBadge(snapshot, latestAnchor)`
-  - `deriveEscalationBadge(snapshot)`
-  - `deriveAnchorLifecycle(latestAnchor, proposals)`
+Pros:
+- Fastest quality improvement with minimal risk.
+- Reduces UI drift and confusing founder behavior immediately.
+Cons:
+- Does not advance deep protocol parity yet.
+- Mostly UX/consistency work.
 
-Code sketch:
-```js
-// apps/keelbase-shared/api-contract.js
-export function normalizeOverviewPayload(raw) {
-  const snapshot = raw?.snapshot ?? null;
-  const proposals = Array.isArray(raw?.proposals) ? raw.proposals : [];
-  return {
-    snapshot,
-    proposals,
-    latestAnchor: raw?.latestAnchor ?? null,
-    vessels: Array.isArray(raw?.vessels) ? raw.vessels : []
-  };
-}
-```
+### Phase 2: CEO Cycle Protocol Parity (Core Backend)
 
-Phase-1 acceptance:
-- All windows render from the same normalized contract.
-- UI exposes `vessel_state`, pending escalations, and anchor lifecycle labels consistently.
+Scope:
+- Implement full plan validation before executing any action.
+- Implement paired cycle anchors:
+  - plan-commit `PENDING`
+  - execution-close `EXECUTED`
+- Enforce `vessel_state_graph` transition checks before state updates.
 
-### Phase 2: CEO Cycle Protocol Compliance
+Current code anchors:
+- `apps/ceo-cli/src/services/runtime.ts:CeoRuntime.runCycle()`
+- `apps/ceo-cli/src/services/actionExecutor.ts`
+- `apps/ceo-cli/src/services/anchorLog.ts`
+- `apps/ceo-cli/src/services/nearClient.ts`
 
-Goal: implement CEO CLI v2 cycle semantics (plan-commit, full-plan validation, execution-close, state transition checks).
+Docx intent vs realistic path:
+- Docx intent: seven-phase cycle with strict protocol semantics.
+- Realistic now: first refactor `runCycle()` into explicit orchestrated phases, then add plan objects and validators (`planValidator.ts`, `stateGraph.ts`, `cycleOrchestrator.ts`).
 
-Current hooks to evolve:
-- Runtime cycle entry: `apps/ceo-cli/src/services/runtime.ts:CeoRuntime.runCycle()`
-- Action submission path: `apps/ceo-cli/src/services/actionExecutor.ts:execute()`
-- Anchor creation path: `apps/ceo-cli/src/services/anchorLog.ts:commit()`
-- Contract methods already available:
-  - `NearClient.submitActionProposal()`
-  - `NearClient.submitAnchorLog()`
-  - `NearClient.getStateSnapshot()`
+Pros:
+- Biggest trust gain for on-chain correctness.
+- Creates measurable parity milestones (paired anchors, no partial invalid execution).
+Cons:
+- Medium-high backend complexity.
+- Requires tighter test coverage before rollout.
 
-Architectural move:
-- Split cycle into explicit deterministic stages with typed plan model.
-- Validate the complete plan before any state-changing action.
-- Persist paired anchor records for each cycle (`PENDING` then `EXECUTED` with same action sequence id).
+### Phase 3: Agent Document Runtime Parity
 
-Proposed additions:
-- `apps/ceo-cli/src/services/planValidator.ts`
-  - `validateCompletePlan(plan, snapshot, stateGraph)`
-- `apps/ceo-cli/src/services/stateGraph.ts`
-  - `parseStateGraph(doc)`
-  - `isValidTransition(fromState, toState, graph)`
-- `apps/ceo-cli/src/services/cycleOrchestrator.ts`
-  - `runCyclePhases(...)` with explicit phase logs
+Scope:
+- Move to manifest-first retrieval as canonical runtime behavior.
+- Implement tiered load order and trigger-based reference loading.
+- Remove synthetic fallback document behavior.
 
-Code sketch:
-```ts
-// phase order target
-const plan = await inferenceClient.decidePlan(context);
-const validation = validateCompletePlan(plan, snapshot, stateGraph);
-if (!validation.ok) return replan(validation);
+Current code anchors:
+- `apps/ceo-cli/src/services/runtime.ts:loadDocument()` (current kludge/fallback exists)
+- `apps/ceo-cli/src/services/documentStore.ts`
+- `apps/ceo-cli/src/services/nearClient.ts:getBlob()`
 
-const cycleId = deriveCycleActionId(snapshot.last_action_id);
-await nearClient.submitAnchorLog({ action_id: cycleId, outcome: "PENDING", ...planSummary });
-await actionExecutor.executePlan(plan);
-await nearClient.submitAnchorLog({ action_id: cycleId, outcome: "EXECUTED", ...executionSummary });
-```
+Kludge to remove:
+- `runtime.ts` currently returns synthetic `document-content-for:${documentRef}` when load fails.
 
-Phase-2 acceptance:
-- No partial execution if any plan item fails validation.
-- Every successful cycle emits paired `PENDING` and `EXECUTED` anchors.
-- Invalid `vessel_state` transitions are blocked pre-submit.
+Docx intent vs realistic path:
+- Docx intent: Four-File standard + strict retrieval protocol.
+- Realistic now: build `documentResolver.ts` + `documentCache.ts`, run in shadow mode first, then cut over and delete fallback.
 
-### Phase 3: Agent Document System Parity
+Pros:
+- Makes future specialist and Architect flows predictable.
+- Reduces hidden runtime drift.
+Cons:
+- Not founder-visible immediately.
+- Requires migration of active document naming and provisioning consistency.
 
-Goal: enforce manifest-first retrieval and Four-File standard at runtime.
+### Phase 4: Liaison Persistence and Proactive Ops
 
-Current hooks to evolve:
-- Document load path: `apps/ceo-cli/src/services/runtime.ts:loadDocument()`
-- Blob/storage path:
-  - `apps/ceo-cli/src/services/nearClient.ts:getBlob()`
-  - `apps/ceo-cli/src/services/documentStore.ts:fetchByCid()`
-- Current kludge to remove:
-  - `runtime.ts` fallback `return \`document-content-for:${documentRef}\``
+Scope:
+- Replace local-only memory as source-of-truth with encrypted off-chain memory.
+- Add proactive Liaison signaling from runtime state (thresholds, escalations, stale state).
+- Keep dashboard as primary channel and make it channel-ready for Telegram parity.
 
-Architectural move:
-- Replace ad-hoc `identity/operations` loading with manifest-driven tiered loader:
-  - load manifest first
-  - resolve version hashes from `active_documents`
-  - load identity + operations + `vessel_state_graph`
-  - on-demand reference loading from `reference_triggers`
-- Add local decrypted cache keyed by `document_id + version_hash`.
+Current code anchors:
+- `apps/ceo-cli/src/services/httpServer.ts:createChatCompletion()`
+- `apps/keelbase-talk-agent/app.js` local memory functions
+- `js/main.js:sendClippyMessageToLiaison()`
+- `apps/ceo-cli/src/services/contextCrypto.ts`
 
-Proposed additions:
-- `apps/ceo-cli/src/services/documentResolver.ts`
-  - `loadManifest(snapshot)`
-  - `loadTieredDocuments(snapshot, taskType)`
-- `apps/ceo-cli/src/services/documentCache.ts`
-  - `get(documentId, versionHash)`
-  - `put(documentId, versionHash, decryptedText)`
+Docx intent vs realistic path:
+- Docx intent: persistent relational memory + proactive Liaison + dashboard/Telegram parity.
+- Realistic now: ship persistent encrypted memory and proactive dashboard signals first; then map same backend session model to Telegram.
 
-Code sketch:
-```ts
-const manifest = await resolver.loadManifest(snapshot.active_documents);
-const docs = await resolver.loadTieredDocuments({
-  manifest,
-  snapshot,
-  taskType
-});
-// docs.identity, docs.operations, docs.stateGraph, docs.references[]
-```
+Pros:
+- Major founder experience improvement.
+- Unlocks continuity and proactive value without full platform completion.
+Cons:
+- Requires careful privacy/key design and migration strategy.
+- New operational burden for memory storage lifecycle.
 
-Phase-3 acceptance:
-- Runtime fails hard on missing required docs (no synthetic fallback text).
-- Reference docs load only when trigger rules match task type.
-- Active document map naming aligns with spec (`ceo_manifest`, `ceo_identity`, `ceo_operations`, `ceo_state_graph`, ...).
+### Phase 5: Architect, Template Mode, and Vessel Web Surfaces
 
-### Phase 4: Liaison Memory and Multi-Channel Parity
+Scope:
+- Implement Architect provisioning pipeline as first-class service.
+- Add factory-driven alphanumeric vessel IDs.
+- Add Template parent/child lifecycle.
+- Add generated vessel web surfaces (`llms.txt`, `/agent/*`).
+- Add NEAR Intents settlement integration path.
 
-Goal: upgrade Liaison from local session chat to persistent encrypted relational interface with proactive behavior.
+Current code anchors:
+- `apps/keelbase-launch-vessel/app.js` (currently wallet-as-contract shortcut)
+- `apps/ceo-cli/src/commands/registerVessel.ts`
+- `apps/ceo-cli/src/commands/prepareUserOwnedLaunch.ts`
+- `apps/ceo-cli/src/services/httpServer.ts:collectVesselsFromProposals()`
+- `contracts/factory-contract` scaffold
 
-Current hooks to evolve:
-- Chat API role routing: `apps/ceo-cli/src/services/httpServer.ts:createChatCompletion()`
-- Chat endpoints: `POST /api/chat`
-- Frontend clients:
-  - `apps/keelbase-talk-agent/app.js`
-  - `js/main.js:sendClippyMessageToLiaison()`
-- Current local memory path:
-  - `apps/keelbase-talk-agent/app.js:getMemoryKey()/loadChatMemory()/saveChatMemory()`
+Docx intent vs realistic path:
+- Docx intent: full end-state platform behavior.
+- Realistic now: treat as a program of work with feature flags and staged releases; avoid bundling all into one launch.
 
-Architectural move:
-- Keep local cache for UX speed, but move source-of-truth Liaison memory to encrypted off-chain store.
-- Add server-side memory adapter and event engine for proactive notifications.
-- Route both dashboard and future Telegram channel through same Liaison session backend.
+Pros:
+- Completes parity with strategic architecture.
+- Enables true platform narrative (not prototype narrative).
+Cons:
+- Highest complexity and dependency coupling.
+- Easy to overrun timeline without strict slice gating.
 
-Proposed additions:
-- `apps/ceo-cli/src/services/liaisonMemoryStore.ts`
-  - `loadMemory(vesselSlug, founderId)`
-  - `appendMemory(vesselSlug, founderId, turn)`
-  - encryption via existing `contextCrypto.ts`
-- `apps/ceo-cli/src/services/liaisonSignals.ts`
-  - `detectProactiveSignals(snapshot, proposals, memory)`
-- `apps/ceo-cli/src/services/channels/telegram.ts`
-  - `sendEscalationPrompt(...)`
-  - `sendMorningSummary(...)`
+## Suggested to Defer (Not Blocked, But Strategically Better Later)
 
-Code sketch:
-```ts
-const memory = await liaisonMemoryStore.loadMemory(vesselSlug, founderId);
-const reply = await createLiaisonReply({ message, memory, snapshot });
-await liaisonMemoryStore.appendMemory(vesselSlug, founderId, { role: "user", content: message });
-await liaisonMemoryStore.appendMemory(vesselSlug, founderId, { role: "assistant", content: reply.text });
-```
+These are important, but suggested to defer until Phases 1-3 are stable:
 
-Phase-4 acceptance:
-- Liaison conversation context persists across sessions and clients.
-- Proactive notifications fire for threshold/state/escalation events.
-- Telegram channel uses same vessel memory and escalation IDs as dashboard.
+- Full Template marketplace UX.
+- Telegram as first-class channel parity.
+- Full `/agent` capability surface beyond minimal endpoint set.
+- NEAR Intents fee-share automation beyond initial settlement hooks.
+- Vertical-specific specialist packs beyond baseline crew.
 
-### Phase 5: Architect + Template Mode + Web Presence Completion
+Why suggested defer:
+- They multiply surface area quickly.
+- They are expensive to debug while core cycle/document protocol is still maturing.
+- Cofounder parallelization is easier once core contract/runtime behavior is stable.
 
-Goal: complete end-to-end platform flows defined in v2/v3/v4 docs.
+## Docx Plan vs Realistic Execution: High-Level Differences
 
-Current hooks to evolve:
-- User-owned launch surface:
-  - `apps/keelbase-launch-vessel/app.js` (currently wallet account == vessel contract id)
-  - `apps/ceo-cli/src/commands/prepareUserOwnedLaunch.ts`
-  - `apps/ceo-cli/src/commands/registerVessel.ts`
-- Existing vessel indexing logic:
-  - `httpServer.ts:collectVesselsFromProposals()`
+1. Spec assumes clean-slate architecture; repo is an evolved prototype.
+- Difference: we need adapter layers and migration cuts, not only net-new components.
 
-Architectural move:
-- Introduce a first-class Architect service that owns provisioning and updates.
-- Move vessel creation to factory-driven alphanumeric account model.
-- Add Template parent/child blueprint model.
-- Publish agent-readable web surfaces (`llms.txt`, `/agent/*`) per vessel.
+2. Spec is capability-complete; roadmap should be milestone-complete.
+- Difference: ship measurable slices with pass/fail gates, not architecture domains.
 
-Proposed additions:
-- `apps/architect-service/` (new service)
-  - `runBespokeProvisioning(sessionInput)`
-  - `runTemplateParentProvisioning(configDoc)`
-  - `runTemplateChildProvisioning(blueprintVersion, childInput)`
-- `contracts/factory-contract` completion for canonical vessel/account deployment.
-- `apps/web-layer-service/`
-  - `generateLlmsTxt(vesselConfig)`
-  - `serveAgentEndpoints(vesselId)` for `/agent/state`, `/agent/capabilities`, `/agent/intake`
-- `apps/ceo-cli/src/services/intentsSettlement.ts`
-  - settlement + fee-share hooks
+3. Spec treats channels/features symmetrically; execution should be asymmetrical.
+- Difference: dashboard-first, Telegram-second; core cycle first, template marketplace later.
 
-Code sketch:
-```ts
-const vesselId = await factory.createVessel({ ownerAccountId, mode, blueprintId });
-await architect.provisionAgentStandard(vesselId, { agents: ["ceo", "liaison", ...] });
-await webLayer.publish(vesselId, {
-  llmsTxt: generateLlmsTxt(vesselConfig),
-  agentEndpoints: true
-});
-```
+4. Spec implies strict document protocol from start; current runtime has compatibility behavior.
+- Difference: remove kludges only after canonical loader passes in shadow mode.
 
-Phase-5 acceptance:
-- Bespoke and Template flows both deploy from Architect pipeline.
-- Vessel IDs follow canonical alphanumeric account model.
-- Generated web layer and `/agent` interfaces are live per vessel.
-- NEAR Intents settlement path and fee-share accounting are integrated.
+## Execution Gates (Pass/Fail)
+
+Phase completion must be binary:
+
+- Phase 1 pass:
+  - all Keelbase windows render from one normalized runtime shape
+  - no conflicting state labels between windows
+- Phase 2 pass:
+  - every successful cycle creates paired `PENDING` + `EXECUTED` anchors
+  - invalid plan item blocks all execution
+- Phase 3 pass:
+  - manifest-first load is canonical
+  - synthetic document fallback removed
+- Phase 4 pass:
+  - Liaison memory persists across refresh/session
+  - proactive dashboard alerts fire from runtime conditions
+- Phase 5 pass:
+  - alphanumeric factory vessel flow works end-to-end
+  - minimal `llms.txt` + `/agent` surface is live per vessel
 
 ## Cross-Phase Engineering Guardrails
 
-- Keep a single canonical state reader path (`get_state_snapshot`) and avoid duplicating state models in frontend logic.
-- Prefer stable contract fields (`kind.type`, `kind.category`, `active_documents`, `approved_counterparties`) over label-text heuristics.
-- Remove compatibility kludges once canonical loaders are in place, especially synthetic document fallbacks.
-- Keep each phase independently deployable to Railway + GitHub Pages with clear feature flags where needed.
+- Prefer canonical fields (`kind.type`, `active_documents`, `approved_counterparties`) over title-text matching.
+- Keep one source of truth per concern:
+  - state: `get_state_snapshot`
+  - conversation: backend memory store
+  - UI: normalized runtime contract
+- If a kludge is discovered in a production path, log it and schedule cleanup before extending that path.
