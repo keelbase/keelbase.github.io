@@ -1,187 +1,351 @@
-# Agent1c.me
+# Keelbase Web Layer: Vision and Prototype Status
 
-Agent1c.me is a serverless, AI-enabled browser OS built on HedgeyOS (`hedgeyos.github.io`).
+This repository is the Keelbase web layer currently running at `https://keelbase.github.io`.
 
-It runs entirely inside a browser tab with no app server. If the tab stays open, Hitomi can keep running autonomous loops and can control a Telegram bot through the configured Bot API token. If the tab closes, runtime stops.
+This README now treats:
 
-No logins, no installations, just API attach.
+- The 5 March 2026 architecture/spec docs as the requested end state.
+- The current codebase as a prototype implementation.
 
-## What It Is
+## Source Vision Documents (Requested End State)
 
-- Local-first autonomous agent workspace inside a retro web desktop
-- Bring Your Own Keys (BYOK): OpenAI, Anthropic, xAI (Grok), z.ai, and Telegram credentials are user-provided
-- Vault encryption in-browser for stored provider credentials
-- Direct provider calls from browser to provider APIs
-- No backend required for MVP
+The end-state definition is taken from these documents:
 
-## Built On HedgeyOS
+1. `1. keelbase_architect_architecture_v2.docx`
+2. `2. keelbase_coord_spec_v3.docx`
+3. `3. keelbase_ceo_cli_spec_v2.docx`
+4. `4. keelbase_coord_deploy_guide_v2.docx`
+5. `5. keelbase_architecture_v4.docx`
 
-This project is built on HedgeyOS and reuses its browser OS foundations:
+## Explicit Vision of Keelbase (From Specs)
 
-- Window manager and desktop shell
-- Menubar and app-launch model
-- Theme system
-- IndexedDB-backed local persistence patterns
+Keelbase is a protocol-enforced platform for AI-native businesses on NEAR, built around:
 
-Agent1c.me and HedgeyOS are both by Decentricity.
+- `Vessel` as sovereign unit (one isolated NEAR sub-account + one coordination contract + one governance policy + one treasury + one crew).
+- `Coordination contract` as legal and operational spine (Sputnik V2 fork, machine-speed DAO semantics).
+- `CEO` as stateless orchestrator (reconstructed every cycle from on-chain snapshot + agent documents).
+- `Specialists` and `temp agents` as scoped inference sessions, not persistent daemons.
+- `Liaison` as persistent founder interface with relationship memory.
+- `Architect` as provisioning and ongoing modification interface (configuration-only permissions).
+- `NEAR AI Cloud TEE` as privacy boundary per inference call (no enclave lifecycle managed by Keelbase).
+- `NEAR Intents` as settlement/payment rail.
 
-## Core Capabilities
+### Platform-level architectural commitments in the docs
 
-- Top-level agent windows in HedgeyOS (Chat, AI APIs, Telegram API, Loop, SOUL.md, TOOLS.md, heartbeat.md, Events)
-- Dedicated `Shell Relay` window (separate from Config) for localhost shell bridge setup and controls
-- Local threaded chat with rolling context
-- Per-thread memory for local chats
-- Per-chat-id memory isolation for Telegram chats
-- Heartbeat loop and event timeline
-- Tile and Arrange window controls in the menubar
-- Multi-provider runtime routing:
-  - OpenAI (`https://api.openai.com/v1/chat/completions`)
-  - Anthropic (`https://api.anthropic.com/v1/messages`)
-  - xAI Grok (`https://api.x.ai/v1/chat/completions`)
-  - z.ai (`https://open.bigmodel.cn/api/paas/v4/chat/completions`)
+- Four-File Agent Standard for persistent agents:
+  - `manifest.yaml` (machine load order and trigger map)
+  - `identity.yaml`
+  - `operations.md`
+  - `reference/` docs
+- Tiered context loading:
+  - manifest first
+  - identity always
+  - operations per cycle
+  - references on demand by trigger
+- CEO plan-then-execute cycle:
+  - full plan validation
+  - plan-commit `AnchorLog` (`PENDING`)
+  - execution
+  - execution-close `AnchorLog` (`EXECUTED`)
+- `vessel_state_graph.yaml` enforced as transition constraint map.
+- First-time counterparty gate enforced from `approved_counterparties` in `StateSnapshot`.
+- Architect supports both:
+  - `Bespoke mode` (single Vessel deployment)
+  - `Template mode` (parent platform Vessel + child blueprint/deploy flow)
+- Liaison is proactive (not only reactive), multi-channel (`dashboard` + `Telegram`), and maintains encrypted relational memory off-chain.
+- Web layer includes human and agent legibility (`llms.txt`, `/agent` endpoints, generated vessel site).
 
-## Onboarding Flow
+## What This Repo Is Currently (Prototype)
 
-1. First load: only `Create Vault` is shown.
-2. After vault creation: `OpenAI API` and `Events` are shown.
-3. User must complete OpenAI setup:
-   - Save encrypted OpenAI key
-   - Test OpenAI connection
-   - Save OpenAI settings (model and temperature)
-4. After setup is complete, OpenAI window minimizes and the rest of the agent workspace appears.
-5. Telegram setup is optional, but required for Telegram bot bridging.
+Current implementation is a working internal alpha shell, not full platform parity:
 
-## Security Model (MVP)
+- Static browser desktop shell adapted from agent1c/hedgeyos framework.
+- Windowed UI for:
+  - Snapshot
+  - Recent Proposals
+  - Launch New Vessel
+  - Created Vessels
+  - Talk to a Vessel Agent
+- Wallet connect flow (MyNearWallet testnet).
+- Vessel registration flow writes metadata/docs and anchors a registration `ANCHOR_LOG`.
+- Shared runtime polling of backend `GET /api/overview`.
+- Chat via backend `POST /api/chat` with multi-role routing.
+- Hitomi bubble wired to Liaison chat.
+- Local browser chat memory by `vessel + role`.
+- Per-message `Save chat to chain` toggle wired to backend `anchorOnChain`.
 
-- Credentials are encrypted at rest in-browser
-- Vault unlock is passphrase-based
-- No third-party app login flow required for MVP
-- Provider secrets are not sent to any agent1c server because there is no agent1c server in this architecture
+## Gap Analysis: Requested End State vs Current Prototype
 
-## Runtime Notes
+| Area | Requested End State (Docs) | Current Prototype State |
+|---|---|---|
+| Vessel identity model | Factory-created alphanumeric vessel IDs (`v7k2m9.keelbase.near`) and full account hierarchy | Uses connected wallet account directly as owner and vessel contract id in launch flow |
+| Architect agent | Fully specified agent with own Four-File docs, Bespoke + Template provisioning logic, persistent modification interface | Not implemented as first-class runtime agent; no full Architect onboarding engine in web flow |
+| Template mode | Parent/child blueprint lifecycle and deployment path | Not implemented |
+| Agent document model | Four-File Standard as canonical runtime source, manifest-first retrieval protocol | Partially represented; prototype currently seeds docs and metadata, but full manifest-first lifecycle is not fully enforced in web layer |
+| CEO cycle semantics | Plan validation + plan-commit `PENDING` anchor + execution-close `EXECUTED` anchor + vessel_state transition rules | Worker/chat operate, but full plan-then-execute protocol and strict state-graph enforcement are not fully implemented end-to-end in this repo |
+| Specialist model | Three-tier specialist strategy and explicit delegation protocol using specialist manifests/triggers | Role routing exists, but full specialist doc retrieval/delegation trigger engine is incomplete |
+| Counterparty gate | Enforced first-time counterparty checks from `approved_counterparties` before FunctionCall/Transfer | Not fully enforced in frontend user flows; partial/ongoing in backend logic |
+| Liaison memory | Persistent encrypted relational memory keyed to vessel/founder credentials | Local browser memory only (prototype), not encrypted shared memory layer |
+| Liaison channels | Dashboard and Telegram parity with proactive messaging | Dashboard chat only in current web flow; Telegram channel integration not complete |
+| Web agent surface | Generated vessel website, `llms.txt`, `/agent` endpoints and machine-readable capabilities | Not implemented in this repo’s current runtime |
+| Payment layer | NEAR Intents-native settlement and fee-share model integrated in operations | Not implemented in current web shell flows |
+| Production governance depth | Full policy profiles, council mechanics, emergency rules, legal-wrapper alignment | Core pieces are present in concept/contract path, but end-user web UX is still alpha and simplified |
 
-- Agent runtime is tab-bound.
-- Locking vault protects secret access, while loop intent can continue and resume API work after unlock.
-- Telegram bridge runs only when enabled and when required credentials are available.
+## Practical Interpretation
 
-## Shell Relay (Phase 1)
+This repository should be treated as a `functional prototype shell` validating:
 
-- `Shell Relay` is a separate HedgeyOS window, not a Config subsection.
-- It provides OS-first setup instructions (Linux, macOS, Android) with copyable code blocks.
-- Relay runtime is shell-only in this phase:
-  - `shell-relay/install.sh`
-  - `shell-relay/agent1c-relay.sh`
-  - `shell-relay/handler.sh`
-- New tool in TOOLS: `shell_exec`.
+- wallet-based onboarding mechanics,
+- vessel registration visibility,
+- live state/proposals read path,
+- role-routed conversational interface,
+- early human-in-the-loop UX.
 
-### Tor Relay (HTTP fetch transport option)
+It is not yet the complete Keelbase platform described in the v2/v3/v4 spec set.
 
-- `Tor Relay` is a separate HedgeyOS window in `.me` that mirrors the Shell Relay UX.
-- v1 scope:
-  - Linux + macOS setup only
-  - uses the same localhost relay runtime
-  - runs as a separate relay instance (default `127.0.0.1:8766`) so Shell Relay can stay online on `8765`
-  - Tor routing applies to relay HTTP fetch path only
-  - shell command execution remains local and unchanged
-- Relay scripts support proxy mode via:
-  - `AGENT1C_RELAY_HTTP_PROXY=socks5h://127.0.0.1:9050`
-- Relay exposes `GET /v1/tor/status` for Tor verification checks.
+## Known Legacy Drift in This Repo
 
-## AI Provider Architecture
+Because this repo was forked from agent1c shell foundations, legacy naming and labels still exist in parts of the codebase (for example old wake-word and shell labels). They are technical debt, not target product language.
 
-- Provider setup is unified in the `AI APIs` window:
-  - Select a provider card
-  - Save encrypted key
-  - Provider key validation runs immediately
-  - On success, provider can become active
-  - Model selection is stored per provider
-- Active provider controls local chat, heartbeat responses, and Telegram replies.
-- Onboarding continues when at least one AI provider key is valid.
+## Next Documentation Rule
 
-## Grok Integration Notes
+For this repo, architecture and roadmap decisions should be evaluated against the 5-doc spec set above. If behavior differs, treat docs as target and current code as transitional unless explicitly superseded in writing.
 
-- xAI (Grok) is fully wired, not preview-only.
-- Supported fallback models currently shown in UI:
-  - `grok-4`
-  - `grok-3`
-  - `grok-3-mini`
-- Key validation is live using xAI API calls.
-- xAI status and key/model controls follow the same card behavior as Anthropic and z.ai.
+## Parity Implementation Strategy (Max 5 Phases)
 
-## How To Add Another Provider
+This is the recommended path from current prototype to spec parity, ordered from low-hanging fruit to deeper architectural work.
 
-1. Add provider state fields (`key`, `model`, `validated`) to preview/provider state.
-2. Add provider card UI in `AI APIs` window and wire card DOM IDs.
-3. Add provider chat function (endpoint + headers + response parsing).
-4. Add provider validation function and include it in `validateProviderKey(...)`.
-5. Include provider in:
-   - provider normalization
-   - display name mapping
-   - active runtime secret resolution
-   - provider badge/pill refresh
-   - onboarding key checks
-   - lock/unlock UI disable handling
-6. Route chat/heartbeat/Telegram through the unified provider runtime path.
-7. Keep wording aligned: avoid "Preview" once provider is fully wired.
+### Phase 1: UX and Contract-Surface Parity (Low Hanging Fruit)
 
-## Local Run
+Goal: align frontend semantics with current backend contract fields before changing core protocol logic.
 
-```bash
-cd agent1c-me.github.io
-python3 -m http.server 8000
+Current hooks to use:
+- Frontend runtime feed: `js/keelbase-runtime.js:startKeelbaseRuntime()`
+- Window state rendering:
+  - `apps/keelbase-snapshot/app.js:renderState()`
+  - `apps/keelbase-recent-proposals/app.js:renderState()`
+  - `apps/keelbase-created-vessels/app.js:renderState()`
+  - `apps/keelbase-talk-agent/app.js:renderRuntimeState()`
+- Chat wiring:
+  - `apps/keelbase-talk-agent/app.js` submit handler
+  - `js/main.js:sendClippyMessageToLiaison()`
+- Backend response surfaces:
+  - `apps/ceo-cli/src/services/httpServer.ts:/api/overview`
+  - `apps/ceo-cli/src/services/httpServer.ts:/api/chat`
+
+Architectural move:
+- Introduce a typed frontend runtime contract layer so every window consumes the same normalized shape.
+- Keep one reader path (`/api/overview`) and one conversation path (`/api/chat`), but normalize data before UI.
+
+Proposed additions:
+- `apps/keelbase-shared/api-contract.js`
+  - `normalizeOverviewPayload(raw)`
+  - `normalizeChatPayload(raw)`
+  - `deriveUiState(overview)`
+- `apps/keelbase-shared/status-derivers.js`
+  - `deriveVesselStateBadge(snapshot, latestAnchor)`
+  - `deriveEscalationBadge(snapshot)`
+  - `deriveAnchorLifecycle(latestAnchor, proposals)`
+
+Code sketch:
+```js
+// apps/keelbase-shared/api-contract.js
+export function normalizeOverviewPayload(raw) {
+  const snapshot = raw?.snapshot ?? null;
+  const proposals = Array.isArray(raw?.proposals) ? raw.proposals : [];
+  return {
+    snapshot,
+    proposals,
+    latestAnchor: raw?.latestAnchor ?? null,
+    vessels: Array.isArray(raw?.vessels) ? raw.vessels : []
+  };
+}
 ```
 
-Open `http://localhost:8000`.
+Phase-1 acceptance:
+- All windows render from the same normalized contract.
+- UI exposes `vessel_state`, pending escalations, and anchor lifecycle labels consistently.
 
-## Live
+### Phase 2: CEO Cycle Protocol Compliance
 
-- Production domain: `https://agent1c.me`
-- GitHub Pages repo: `https://github.com/agent1c-me/agent1c-me.github.io`
+Goal: implement CEO CLI v2 cycle semantics (plan-commit, full-plan validation, execution-close, state transition checks).
 
-## Development Notes
+Current hooks to evolve:
+- Runtime cycle entry: `apps/ceo-cli/src/services/runtime.ts:CeoRuntime.runCycle()`
+- Action submission path: `apps/ceo-cli/src/services/actionExecutor.ts:execute()`
+- Anchor creation path: `apps/ceo-cli/src/services/anchorLog.ts:commit()`
+- Contract methods already available:
+  - `NearClient.submitActionProposal()`
+  - `NearClient.submitAnchorLog()`
+  - `NearClient.getStateSnapshot()`
 
-- Vanilla HTML, CSS, and JavaScript (no npm dependency chain)
-- Changes should preserve HedgeyOS baseline behavior unless intentionally modified
-- Integration notes and guardrails are documented in `agents.md`
+Architectural move:
+- Split cycle into explicit deterministic stages with typed plan model.
+- Validate the complete plan before any state-changing action.
+- Persist paired anchor records for each cycle (`PENDING` then `EXECUTED` with same action sequence id).
 
-## Cross-Repo Diff Map
+Proposed additions:
+- `apps/ceo-cli/src/services/planValidator.ts`
+  - `validateCompletePlan(plan, snapshot, stateGraph)`
+- `apps/ceo-cli/src/services/stateGraph.ts`
+  - `parseStateGraph(doc)`
+  - `isValidTransition(fromState, toState, graph)`
+- `apps/ceo-cli/src/services/cycleOrchestrator.ts`
+  - `runCyclePhases(...)` with explicit phase logs
 
-- `.me` vs `.ai` behavior map (sovereign reference): `LOCAL_VS_CLOUD_DIFF.md`
-- Reciprocal map in cloud repo: `../agent1c-ai.github.io/CLOUD_VS_LOCAL_DIFF.md`
+Code sketch:
+```ts
+// phase order target
+const plan = await inferenceClient.decidePlan(context);
+const validation = validateCompletePlan(plan, snapshot, stateGraph);
+if (!validation.ok) return replan(validation);
 
-## Proxy Browsing Status (Existing vs Next)
+const cycleId = deriveCycleActionId(snapshot.last_action_id);
+await nearClient.submitAnchorLog({ action_id: cycleId, outcome: "PENDING", ...planSummary });
+await actionExecutor.executePlan(plan);
+await nearClient.submitAnchorLog({ action_id: cycleId, outcome: "EXECUTED", ...executionSummary });
+```
 
-### Existing features (implemented)
+Phase-2 acceptance:
+- No partial execution if any plan item fails validation.
+- Every successful cycle emits paired `PENDING` and `EXECUTED` anchors.
+- Invalid `vessel_state` transitions are blocked pre-submit.
 
-- Hedgey Browser has relay routing controls with route modes:
-  - `🖧` direct first + Shell Relay fallback
-  - `🧅` direct first + Tor Relay fallback
-  - purple `🧅` Tor-first/force mode
-- Shell Relay (`8765`) and Tor Relay (`8766`) can run at the same time.
-- `Use Experimental Web Proxy` toggle exists in both Shell Relay and Tor Relay windows and stays synced.
-- Relay supports full-proxy endpoints:
-  - `GET /v1/proxy/page`
-  - `GET /v1/proxy/asset`
-- Browser can use proxy page mode as relay fallback (experimental proxy ON).
-- Proxy rewriting currently supports:
-  - canonical link click handoff (browser field stays on real target URL)
-  - universal GET form-submit bridge (including scripted submit paths)
-  - `srcset` rewriting
-  - CSS `url(...)` and `@import` rewriting
-- Proxy hardening already applied:
-  - recursive proxy rewrite guards
-  - canonical form action handling (avoid `/v1/proxy/page?...` without `url=`)
-  - no browser-side double-fetch preflight (Yahoo regression avoided)
+### Phase 3: Agent Document System Parity
 
-### To be implemented for proxy browsing (next phase)
+Goal: enforce manifest-first retrieval and Four-File standard at runtime.
 
-- P2.2 anti-bot detection + HedgeyOS-native warning dialog on proxy path (single-fetch only).
-- Proxy status/title UX polish after proxied navigation and form submits.
-- Saved-app proxy correctness:
-  - always store original URL
-  - reopen via current route mode without blank-app regressions.
-- More compatibility work for complex sites:
-  - graceful POST form behavior
-  - redirect/canonicalization edge cases
-  - additional asset/CSS rewrite edge cases
-- Later (shared with `.ai` design): full Cloudflare Worker proxy backend for managed browsing transport.
+Current hooks to evolve:
+- Document load path: `apps/ceo-cli/src/services/runtime.ts:loadDocument()`
+- Blob/storage path:
+  - `apps/ceo-cli/src/services/nearClient.ts:getBlob()`
+  - `apps/ceo-cli/src/services/documentStore.ts:fetchByCid()`
+- Current kludge to remove:
+  - `runtime.ts` fallback `return \`document-content-for:${documentRef}\``
+
+Architectural move:
+- Replace ad-hoc `identity/operations` loading with manifest-driven tiered loader:
+  - load manifest first
+  - resolve version hashes from `active_documents`
+  - load identity + operations + `vessel_state_graph`
+  - on-demand reference loading from `reference_triggers`
+- Add local decrypted cache keyed by `document_id + version_hash`.
+
+Proposed additions:
+- `apps/ceo-cli/src/services/documentResolver.ts`
+  - `loadManifest(snapshot)`
+  - `loadTieredDocuments(snapshot, taskType)`
+- `apps/ceo-cli/src/services/documentCache.ts`
+  - `get(documentId, versionHash)`
+  - `put(documentId, versionHash, decryptedText)`
+
+Code sketch:
+```ts
+const manifest = await resolver.loadManifest(snapshot.active_documents);
+const docs = await resolver.loadTieredDocuments({
+  manifest,
+  snapshot,
+  taskType
+});
+// docs.identity, docs.operations, docs.stateGraph, docs.references[]
+```
+
+Phase-3 acceptance:
+- Runtime fails hard on missing required docs (no synthetic fallback text).
+- Reference docs load only when trigger rules match task type.
+- Active document map naming aligns with spec (`ceo_manifest`, `ceo_identity`, `ceo_operations`, `ceo_state_graph`, ...).
+
+### Phase 4: Liaison Memory and Multi-Channel Parity
+
+Goal: upgrade Liaison from local session chat to persistent encrypted relational interface with proactive behavior.
+
+Current hooks to evolve:
+- Chat API role routing: `apps/ceo-cli/src/services/httpServer.ts:createChatCompletion()`
+- Chat endpoints: `POST /api/chat`
+- Frontend clients:
+  - `apps/keelbase-talk-agent/app.js`
+  - `js/main.js:sendClippyMessageToLiaison()`
+- Current local memory path:
+  - `apps/keelbase-talk-agent/app.js:getMemoryKey()/loadChatMemory()/saveChatMemory()`
+
+Architectural move:
+- Keep local cache for UX speed, but move source-of-truth Liaison memory to encrypted off-chain store.
+- Add server-side memory adapter and event engine for proactive notifications.
+- Route both dashboard and future Telegram channel through same Liaison session backend.
+
+Proposed additions:
+- `apps/ceo-cli/src/services/liaisonMemoryStore.ts`
+  - `loadMemory(vesselSlug, founderId)`
+  - `appendMemory(vesselSlug, founderId, turn)`
+  - encryption via existing `contextCrypto.ts`
+- `apps/ceo-cli/src/services/liaisonSignals.ts`
+  - `detectProactiveSignals(snapshot, proposals, memory)`
+- `apps/ceo-cli/src/services/channels/telegram.ts`
+  - `sendEscalationPrompt(...)`
+  - `sendMorningSummary(...)`
+
+Code sketch:
+```ts
+const memory = await liaisonMemoryStore.loadMemory(vesselSlug, founderId);
+const reply = await createLiaisonReply({ message, memory, snapshot });
+await liaisonMemoryStore.appendMemory(vesselSlug, founderId, { role: "user", content: message });
+await liaisonMemoryStore.appendMemory(vesselSlug, founderId, { role: "assistant", content: reply.text });
+```
+
+Phase-4 acceptance:
+- Liaison conversation context persists across sessions and clients.
+- Proactive notifications fire for threshold/state/escalation events.
+- Telegram channel uses same vessel memory and escalation IDs as dashboard.
+
+### Phase 5: Architect + Template Mode + Web Presence Completion
+
+Goal: complete end-to-end platform flows defined in v2/v3/v4 docs.
+
+Current hooks to evolve:
+- User-owned launch surface:
+  - `apps/keelbase-launch-vessel/app.js` (currently wallet account == vessel contract id)
+  - `apps/ceo-cli/src/commands/prepareUserOwnedLaunch.ts`
+  - `apps/ceo-cli/src/commands/registerVessel.ts`
+- Existing vessel indexing logic:
+  - `httpServer.ts:collectVesselsFromProposals()`
+
+Architectural move:
+- Introduce a first-class Architect service that owns provisioning and updates.
+- Move vessel creation to factory-driven alphanumeric account model.
+- Add Template parent/child blueprint model.
+- Publish agent-readable web surfaces (`llms.txt`, `/agent/*`) per vessel.
+
+Proposed additions:
+- `apps/architect-service/` (new service)
+  - `runBespokeProvisioning(sessionInput)`
+  - `runTemplateParentProvisioning(configDoc)`
+  - `runTemplateChildProvisioning(blueprintVersion, childInput)`
+- `contracts/factory-contract` completion for canonical vessel/account deployment.
+- `apps/web-layer-service/`
+  - `generateLlmsTxt(vesselConfig)`
+  - `serveAgentEndpoints(vesselId)` for `/agent/state`, `/agent/capabilities`, `/agent/intake`
+- `apps/ceo-cli/src/services/intentsSettlement.ts`
+  - settlement + fee-share hooks
+
+Code sketch:
+```ts
+const vesselId = await factory.createVessel({ ownerAccountId, mode, blueprintId });
+await architect.provisionAgentStandard(vesselId, { agents: ["ceo", "liaison", ...] });
+await webLayer.publish(vesselId, {
+  llmsTxt: generateLlmsTxt(vesselConfig),
+  agentEndpoints: true
+});
+```
+
+Phase-5 acceptance:
+- Bespoke and Template flows both deploy from Architect pipeline.
+- Vessel IDs follow canonical alphanumeric account model.
+- Generated web layer and `/agent` interfaces are live per vessel.
+- NEAR Intents settlement path and fee-share accounting are integrated.
+
+## Cross-Phase Engineering Guardrails
+
+- Keep a single canonical state reader path (`get_state_snapshot`) and avoid duplicating state models in frontend logic.
+- Prefer stable contract fields (`kind.type`, `kind.category`, `active_documents`, `approved_counterparties`) over label-text heuristics.
+- Remove compatibility kludges once canonical loaders are in place, especially synthetic document fallbacks.
+- Keep each phase independently deployable to Railway + GitHub Pages with clear feature flags where needed.
