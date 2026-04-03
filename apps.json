@@ -4,10 +4,16 @@
     { "id": "browser", "title": "Browser", "section": "system", "category": "system" },
     { "id": "notes", "title": "Notes", "section": "system", "category": "system" },
 
+    { "id": "keelbaseArchitect", "title": "Architect", "url": "/apps/keelbase-architect/", "section": "keelbase", "category": "keelbase" },
     { "id": "keelbaseSnapshot", "title": "Snapshot", "url": "/apps/keelbase-snapshot/", "section": "keelbase", "category": "keelbase" },
     { "id": "keelbaseRecentProposals", "title": "Recent Proposals", "url": "/apps/keelbase-recent-proposals/", "section": "keelbase", "category": "keelbase" },
     { "id": "keelbaseLaunchVessel", "title": "Launch New Vessel", "url": "/apps/keelbase-launch-vessel/", "section": "keelbase", "category": "keelbase" },
     { "id": "keelbaseCreatedVessels", "title": "Created Vessels", "url": "/apps/keelbase-created-vessels/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseTodo", "title": "2do", "url": "/apps/keelbase-todo/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseVault", "title": "Vault", "url": "/apps/keelbase-vault/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseCrew", "title": "Crew", "url": "/apps/keelbase-crew/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbaseSettings", "title": "Settings", "url": "/apps/keelbase-settings/", "section": "keelbase", "category": "keelbase" },
+    { "id": "keelbasePurser", "title": "Purser", "url": "/apps/keelbase-purser/", "section": "keelbase", "category": "keelbase" },
     { "id": "keelbaseTalkAgent", "title": "Talk to a Vessel Agent", "url": "/apps/keelbase-talk-agent/", "section": "keelbase", "category": "keelbase" },
     { "id": "keelbaseDashboard", "title": "Keelbase Dashboard", "url": "/dashboard/", "section": "keelbase", "category": "keelbase" }
   ]

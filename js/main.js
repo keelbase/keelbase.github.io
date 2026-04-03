@@ -18,6 +18,7 @@ const WINDOW_LAYOUT_KEY = "hedgey_window_layout_v1";
 const KEELBASE_FLOW_KEY = "keelbase_flow_phase_v1";
 const KEELBASE_FLOW_CHANNEL = "keelbase-flow-v1";
 const KEELBASE_RUNTIME_CHANNEL = "keelbase-runtime-v1";
+const FLOW_PHASE_ONBOARDING = "onboarding";
 const FLOW_PHASE_BOOTSTRAP = "bootstrap";
 const FLOW_PHASE_FULL = "full";
 const KEELBASE_WALLET_AUTH_KEY = "keelbase-pages_wallet_auth_key";
@@ -306,6 +307,7 @@ function positionWindow(id, target){
 
 function spawnKeelbaseWindows(wm){
   const startupLayout = [
+    { title: "Architect", url: "/apps/keelbase-architect/", pos: { left: 18, top: 34 } },
     { title: "Recent Proposals", url: "/apps/keelbase-recent-proposals/", pos: { left: 18, top: 340 } },
     { title: "Launch New Vessel", url: "/apps/keelbase-launch-vessel/", pos: { left: 380, top: 340 } }
   ];
@@ -317,13 +319,24 @@ function spawnKeelbaseWindows(wm){
   startupWindows.forEach((entry) => positionWindow(entry.id, entry.pos));
 }
 
+function spawnArchitectWindow(wm){
+  const entry = { title: "Architect", url: "/apps/keelbase-architect/", pos: { left: 120, top: 56 } };
+  const existing = wm.findWindowByTitle?.(entry.title);
+  const id = existing?.id || wm.createAppWindow(entry.title, entry.url);
+  positionWindow(id, entry.pos);
+}
+
 function spawnAllKeelbaseWindows(wm){
   const startupLayout = [
     { title: "Snapshot", url: "/apps/keelbase-snapshot/", pos: { left: 18, top: 34 } },
-    { title: "Recent Proposals", url: "/apps/keelbase-recent-proposals/", pos: { left: 380, top: 34 } },
-    { title: "Launch New Vessel", url: "/apps/keelbase-launch-vessel/", pos: { left: 742, top: 34 } },
-    { title: "Created Vessels", url: "/apps/keelbase-created-vessels/", pos: { left: 18, top: 340 } },
-    { title: "Talk to a Vessel Agent", url: "/apps/keelbase-talk-agent/", pos: { left: 380, top: 340 } }
+    { title: "2do", url: "/apps/keelbase-todo/", pos: { left: 380, top: 34 } },
+    { title: "Vault", url: "/apps/keelbase-vault/", pos: { left: 742, top: 34 } },
+    { title: "Recent Proposals", url: "/apps/keelbase-recent-proposals/", pos: { left: 18, top: 340 } },
+    { title: "Created Vessels", url: "/apps/keelbase-created-vessels/", pos: { left: 380, top: 340 } },
+    { title: "Talk to a Vessel Agent", url: "/apps/keelbase-talk-agent/", pos: { left: 742, top: 340 } },
+    { title: "Crew", url: "/apps/keelbase-crew/", pos: { left: 18, top: 646 } },
+    { title: "Settings", url: "/apps/keelbase-settings/", pos: { left: 380, top: 646 } },
+    { title: "Purser", url: "/apps/keelbase-purser/", pos: { left: 742, top: 646 } }
   ];
 
   const startupWindows = startupLayout.map((entry) => {
@@ -337,14 +350,17 @@ function spawnAllKeelbaseWindows(wm){
 function getKeelbaseFlowPhase(){
   try {
     const raw = String(localStorage.getItem(KEELBASE_FLOW_KEY) || "").trim().toLowerCase();
-    return raw === FLOW_PHASE_FULL ? FLOW_PHASE_FULL : FLOW_PHASE_BOOTSTRAP;
+    if (raw === FLOW_PHASE_ONBOARDING) return FLOW_PHASE_ONBOARDING;
+    if (raw === FLOW_PHASE_FULL) return FLOW_PHASE_FULL;
+    return raw === FLOW_PHASE_BOOTSTRAP ? FLOW_PHASE_BOOTSTRAP : FLOW_PHASE_ONBOARDING;
   } catch {
-    return FLOW_PHASE_BOOTSTRAP;
+    return FLOW_PHASE_ONBOARDING;
   }
 }
 
 function setKeelbaseFlowPhase(phase){
-  const normalized = phase === FLOW_PHASE_FULL ? FLOW_PHASE_FULL : FLOW_PHASE_BOOTSTRAP;
+  const normalized =
+    phase === FLOW_PHASE_FULL ? FLOW_PHASE_FULL : phase === FLOW_PHASE_ONBOARDING ? FLOW_PHASE_ONBOARDING : FLOW_PHASE_BOOTSTRAP;
   try {
     localStorage.setItem(KEELBASE_FLOW_KEY, normalized);
   } catch {}
@@ -406,6 +422,9 @@ async function initKeelbaseWindowFlow(wm){
     phase = setKeelbaseFlowPhase(FLOW_PHASE_FULL);
     spawnAllKeelbaseWindows(wm);
     triggerTileAfterPaint(wm);
+  } else if (phase === FLOW_PHASE_ONBOARDING) {
+    spawnArchitectWindow(wm);
+    triggerTileAfterPaint(wm);
   } else {
     spawnKeelbaseWindows(wm);
     triggerTileAfterPaint(wm);
@@ -429,6 +448,10 @@ async function initKeelbaseWindowFlow(wm){
   flowChannel.addEventListener("message", (event) => {
     const message = event?.data || {};
     if (message.type === "keelbase:flow:vessel-created") {
+      promoteToFull();
+      return;
+    }
+    if (message.type === "keelbase:flow:architect-complete") {
       promoteToFull();
       return;
     }
