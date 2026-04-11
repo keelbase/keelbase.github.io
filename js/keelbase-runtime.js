@@ -1,5 +1,5 @@
 const RUNTIME_CHANNEL = "keelbase-runtime-v1";
-const API_BASE_URL = "https://keelbase-platform-internal-production.up.railway.app";
+const API_BASE_URL = "https://keelbaseceo-cli-production.up.railway.app";
 const REFRESH_MS = 30000;
 
 export function startKeelbaseRuntime() {

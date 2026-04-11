@@ -7,8 +7,11 @@ import { initThemeToggle, initThemeState, applyTheme, getTheme, applyWallpaper, 
 import { createHud } from "./hud.js";
 import { createVoiceSttController } from "./voice-stt.js";
 import { startKeelbaseRuntime } from "./keelbase-runtime.js";
+import { processWalletCallback } from "../apps/keelbase-shared/core.js";
 // import { initAgent1C } from "./agent1c.js";
 // Onboarding phase and agent panel auto-spawn are intentionally disabled for Keelbase migration.
+
+processWalletCallback();
 
 const menubar = document.getElementById("menubar");
 const desktop = document.getElementById("desktop");
@@ -22,7 +25,7 @@ const FLOW_PHASE_ONBOARDING = "onboarding";
 const FLOW_PHASE_BOOTSTRAP = "bootstrap";
 const FLOW_PHASE_FULL = "full";
 const KEELBASE_WALLET_AUTH_KEY = "keelbase-pages_wallet_auth_key";
-const KEELBASE_CHAT_API_BASE_URL = "https://keelbase-platform-internal-production.up.railway.app";
+const KEELBASE_CHAT_API_BASE_URL = "https://keelbaseceo-cli-production.up.railway.app";
 
 async function loadAppsConfig(){
   try{

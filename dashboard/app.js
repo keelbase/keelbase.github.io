@@ -1,12 +1,12 @@
 import { connect, keyStores, WalletConnection } from "https://esm.sh/near-api-js@5.1.1";
 
-const RPC_URL = "https://rpc.testnet.near.org";
+const RPC_URL = "https://test.rpc.fastnear.com";
 const CONTRACT_ID = "coord2-1772411670-keelbase.testnet";
 const CEO_ACCOUNT = "ceo.coord2-1772411670-keelbase.testnet";
 const NETWORK_ID = "testnet";
 const WALLET_URL = "https://testnet.mynearwallet.com";
 const HELPER_URL = "https://helper.testnet.near.org";
-const CHAT_API_BASE_URL = "https://keelbase-platform-internal-production.up.railway.app";
+const CHAT_API_BASE_URL = "https://keelbaseceo-cli-production.up.railway.app";
 const REFRESH_MS = 30000;
 const LOCAL_MEMORY_PREFIX = "keelbase.chat.v1";
 

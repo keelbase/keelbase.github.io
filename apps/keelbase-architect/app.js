@@ -6,7 +6,8 @@ import {
   RPC_URL,
   WALLET_URL,
   HELPER_URL,
-  escapeHtml
+  escapeHtml,
+  redirectToWalletLogin
 } from "../keelbase-shared/core.js";
 import { requestRuntimeRefresh } from "../keelbase-shared/client-runtime.js";
 
@@ -37,7 +38,7 @@ connectWalletBtn.addEventListener("click", async () => {
     syncWalletUi(wallet.getAccountId());
     return;
   }
-  wallet.requestSignIn(CONTRACT_ID, "Keelbase Architect", window.location.href, window.location.href);
+  redirectToWalletLogin(CONTRACT_ID);
 });
 
 disconnectWalletBtn.addEventListener("click", () => {

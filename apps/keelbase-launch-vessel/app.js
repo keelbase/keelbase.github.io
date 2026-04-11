@@ -6,7 +6,8 @@ import {
   WALLET_URL,
   HELPER_URL,
   normalizeSlug,
-  sha256Hex
+  sha256Hex,
+  redirectToWalletLogin
 } from "../keelbase-shared/core.js";
 import { getRuntimeState, requestRuntimeRefresh, subscribeRuntime } from "../keelbase-shared/client-runtime.js";
 
@@ -39,11 +40,7 @@ connectWalletBtn.addEventListener("click", async () => {
     return;
   }
 
-  try {
-    wallet.requestSignIn(CONTRACT_ID, "Keelbase", window.location.href, window.location.href);
-  } catch (err) {
-    alert(`Wallet redirect failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
+  redirectToWalletLogin(CONTRACT_ID);
 });
 
 disconnectWalletBtn.addEventListener("click", () => {

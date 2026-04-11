@@ -8,7 +8,7 @@ export const CEO_ACCOUNT = "ceo.coord2-1772411670-keelbase.testnet";
 export const NETWORK_ID = "testnet";
 export const WALLET_URL = "https://testnet.mynearwallet.com";
 export const HELPER_URL = "https://helper.testnet.near.org";
-export const CHAT_API_BASE_URL = "https://keelbase-platform-internal-production.up.railway.app";
+export const CHAT_API_BASE_URL = "https://keelbaseceo-cli-production.up.railway.app";
 export const LOCAL_MEMORY_PREFIX = "keelbase.chat.v1";
 
 export async function rpcView(methodName, args) {
@@ -130,4 +130,30 @@ export async function latestAnchor() {
   const proposals = await rpcView("get_proposals", { from_index: 0, limit: 120 });
   const anchor = [...proposals].reverse().find((p) => p.kind?.type === "ANCHOR_LOG") || null;
   return { proposals, anchor };
+}
+
+const WALLET_AUTH_KEY = "keelbase-pages_wallet_auth_key";
+
+export function processWalletCallback() {
+  const url = new URL(window.location.href);
+  const accountId = url.searchParams.get("account_id");
+  if (!accountId) return null;
+  const allKeys = (url.searchParams.get("all_keys") || "").split(",").filter(Boolean);
+  localStorage.setItem(WALLET_AUTH_KEY, JSON.stringify({ accountId, allKeys }));
+  url.searchParams.delete("account_id");
+  url.searchParams.delete("all_keys");
+  url.searchParams.delete("public_key");
+  window.history.replaceState({}, "", url.toString());
+  return accountId;
+}
+
+export function redirectToWalletLogin(contractId) {
+  const top = window.top || window;
+  const successUrl = top.location.origin + "/";
+  const loginUrl = new URL(WALLET_URL + "/login/");
+  loginUrl.searchParams.set("referrer", "Keelbase");
+  loginUrl.searchParams.set("contract_id", contractId);
+  loginUrl.searchParams.set("success_url", successUrl);
+  loginUrl.searchParams.set("failure_url", successUrl);
+  top.location.assign(loginUrl.toString());
 }
