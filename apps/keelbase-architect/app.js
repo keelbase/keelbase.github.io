@@ -87,13 +87,19 @@ function syncWalletUi(accountId) {
 async function resumeOrStartSession() {
   const savedSessionId = sessionStorage.getItem(ARCHITECT_SESSION_KEY);
   if (savedSessionId) {
-    const response = await fetch(`${CHAT_API_BASE_URL}/api/architect/session/${savedSessionId}`);
-    const payload = await response.json().catch(() => null);
-    if (response.ok && payload?.session) {
+    const response = await fetch(`${CHAT_API_BASE_URL}/api/architect/session/${savedSessionId}`).catch(() => null);
+    const payload = await response?.json().catch(() => null);
+    if (response?.ok && payload?.session) {
       session = payload.session;
       renderSession();
       return;
     }
+    sessionStorage.removeItem(ARCHITECT_SESSION_KEY);
+  }
+  if (!connectedAccountId) {
+    session = null;
+    progressEl.textContent = "Connect your wallet to start the Architect.";
+    return;
   }
   await startSession();
 }

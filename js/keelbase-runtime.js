@@ -1,6 +1,18 @@
 const RUNTIME_CHANNEL = "keelbase-runtime-v1";
 const API_BASE_URL = "https://keelbaseceo-cli-production.up.railway.app";
 const REFRESH_MS = 30000;
+const WALLET_AUTH_KEY = "keelbase-pages_wallet_auth_key";
+
+function getConnectedAccountId() {
+  try {
+    const raw = localStorage.getItem(WALLET_AUTH_KEY);
+    if (!raw) return "";
+    const parsed = JSON.parse(raw);
+    return String(parsed?.accountId || "").trim();
+  } catch {
+    return "";
+  }
+}
 
 export function startKeelbaseRuntime() {
   if (window.__keelbaseRuntimeStarted) return;
@@ -24,7 +36,9 @@ export function startKeelbaseRuntime() {
 
   async function refresh() {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/overview`, {
+      const accountId = getConnectedAccountId();
+      const qs = accountId ? `?accountId=${encodeURIComponent(accountId)}` : "";
+      const response = await fetch(`${API_BASE_URL}/api/overview${qs}`, {
         method: "GET",
         headers: { accept: "application/json" }
       });

@@ -3,8 +3,8 @@ export const RPC_URLS = [
   "https://rpc.testnet.near.org"
 ];
 export const RPC_URL = RPC_URLS[0];
-export const CONTRACT_ID = "coord2-1772411670-keelbase.testnet";
-export const CEO_ACCOUNT = "ceo.coord2-1772411670-keelbase.testnet";
+export const CONTRACT_ID = "keelbase-coord-v2.testnet";
+export const CEO_ACCOUNT = "ceo.keelbase-coord-v2.testnet";
 export const NETWORK_ID = "testnet";
 export const WALLET_URL = "https://testnet.mynearwallet.com";
 export const HELPER_URL = "https://helper.testnet.near.org";

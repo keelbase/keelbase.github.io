@@ -10,8 +10,12 @@ const statusEl = document.getElementById("status");
 const paymentsListEl = document.getElementById("paymentsList");
 const payForm = document.getElementById("payForm");
 const submitBtn = document.getElementById("submitBtn");
+const treasuryBalanceEl = document.getElementById("treasuryBalance");
+const depositAddressEl = document.getElementById("depositAddress");
+const autoApproveNearEl = document.getElementById("autoApproveNear");
 
 vesselSelect.addEventListener("change", () => {
+  loadTreasury().catch(() => {});
   loadPayments().catch(() => {});
 });
 
@@ -19,27 +23,55 @@ payForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   const slug = vesselSelect.value;
   if (!slug) return;
+  const vendor = vendorInput.value.trim();
+  const amount = amountInput.value.trim();
+  const description = descriptionInput.value.trim();
+  if (!vendor || !amount || !description) {
+    statusEl.textContent = "Vendor account, amount, and description are required.";
+    statusEl.className = "meta status-warn";
+    return;
+  }
   submitBtn.disabled = true;
-  submitBtn.textContent = "Submitting...";
+  submitBtn.textContent = "Sending...";
+  statusEl.textContent = "Submitting payment...";
+  statusEl.className = "meta";
   try {
     const response = await fetch(`${CHAT_API_BASE_URL}/api/vessel/${encodeURIComponent(slug)}/pay`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
-        vendor: vendorInput.value,
-        amount: amountInput.value,
-        currency: currencyInput.value,
-        description: descriptionInput.value
+        vendor,
+        amount,
+        currency: "NEAR",
+        description
       })
     });
     const payload = await response.json();
-    statusEl.textContent = payload?.ok
-      ? `Simulated payment anchored as proposal ${payload.anchorProposalId || "n/a"}.`
-      : `Payment failed: ${payload?.error || "unknown error"}`;
+    if (payload?.ok && payload.payment) {
+      const p = payload.payment;
+      if (p.status === "executed") {
+        statusEl.textContent = `Payment executed. tx=${p.txHash || "n/a"} anchor=${payload.anchorProposalId || "n/a"}`;
+        statusEl.className = "meta status-good";
+      } else if (p.status === "pending_approval") {
+        statusEl.textContent = `Payment over auto-approve threshold. Awaiting council approval. anchor=${payload.anchorProposalId || "n/a"}`;
+        statusEl.className = "meta status-warn";
+      } else {
+        statusEl.textContent = `Payment status: ${p.status}. anchor=${payload.anchorProposalId || "n/a"}`;
+        statusEl.className = "meta";
+      }
+    } else {
+      const detail = payload?.payment?.error || payload?.error || "unknown error";
+      statusEl.textContent = `Payment failed: ${detail}`;
+      statusEl.className = "meta status-bad";
+    }
     await loadPayments();
+    await loadTreasury();
+  } catch (err) {
+    statusEl.textContent = `Payment request failed: ${err instanceof Error ? err.message : String(err)}`;
+    statusEl.className = "meta status-bad";
   } finally {
     submitBtn.disabled = false;
-    submitBtn.textContent = "Simulate Payment";
+    submitBtn.textContent = "Send Payment";
   }
 });
 
@@ -57,9 +89,33 @@ subscribeRuntime((state) => {
     vesselSelect.value = current;
   }
   if (vessels.length > 0) {
+    loadTreasury().catch(() => {});
     loadPayments().catch(() => {});
+  } else {
+    treasuryBalanceEl.textContent = "-";
+    depositAddressEl.textContent = "-";
+    autoApproveNearEl.textContent = "-";
   }
 });
+
+async function loadTreasury() {
+  const slug = vesselSelect.value;
+  if (!slug) return;
+  treasuryBalanceEl.textContent = "loading...";
+  try {
+    const response = await fetch(`${CHAT_API_BASE_URL}/api/vessel/${encodeURIComponent(slug)}/treasury`);
+    const payload = await response.json();
+    if (payload?.ok) {
+      treasuryBalanceEl.textContent = String(payload.balanceNear ?? "0");
+      depositAddressEl.textContent = String(payload.depositAddress ?? "-");
+      autoApproveNearEl.textContent = String(payload.policyAutoApproveNear ?? "-");
+    } else {
+      treasuryBalanceEl.textContent = "unavailable";
+    }
+  } catch {
+    treasuryBalanceEl.textContent = "error";
+  }
+}
 
 async function loadPayments() {
   const slug = vesselSelect.value;
@@ -71,18 +127,31 @@ async function loadPayments() {
   for (const payment of payments.slice().reverse()) {
     const node = document.createElement("article");
     node.className = "item";
+    const statusText = String(payment.status || "unknown");
+    const txLine = payment.txHash
+      ? `<div class="line2">tx: <code>${escapeHtml(String(payment.txHash))}</code></div>`
+      : "";
+    const anchorLine = payment.anchorProposalId
+      ? `<div class="line2">anchor proposal: ${escapeHtml(String(payment.anchorProposalId))}</div>`
+      : "";
+    const errorLine = payment.error
+      ? `<div class="line2 status-bad">error: ${escapeHtml(String(payment.error))}</div>`
+      : "";
     node.innerHTML = `
       <div class="line1">
         <span>${escapeHtml(String(payment.vendor || "vendor"))}</span>
-        <span>${escapeHtml(String(payment.status || "simulated"))}</span>
+        <span>${escapeHtml(statusText)}</span>
       </div>
-      <div class="line2">${escapeHtml(String(payment.amount || "0"))} ${escapeHtml(String(payment.currency || "USD"))}</div>
+      <div class="line2">${escapeHtml(String(payment.amount || "0"))} ${escapeHtml(String(payment.currency || "NEAR"))}</div>
       <div class="line2">${escapeHtml(String(payment.description || ""))}</div>
+      ${txLine}
+      ${anchorLine}
+      ${errorLine}
     `;
     paymentsListEl.appendChild(node);
   }
   if (payments.length === 0) {
-    paymentsListEl.innerHTML = '<article class="item"><div class="line2">No simulated payments yet.</div></article>';
+    paymentsListEl.innerHTML = '<article class="item"><div class="line2">No payments yet.</div></article>';
   }
 }
 

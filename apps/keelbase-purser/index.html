@@ -13,29 +13,38 @@
   <main class="wrap">
     <section class="card">
       <h1>Purser</h1>
-      <p class="meta">Testnet simulation for vendor payments until Slash is live.</p>
-      <form id="payForm" class="form-grid" style="margin-top:0.75rem;">
+      <p class="meta">Vendor payments from the vessel treasury. Native NEAR transfers on testnet.</p>
+
+      <section id="treasuryPanel" class="form-grid" style="margin:0.6rem 0; gap:0.4rem;">
         <label>
           Vessel
           <select id="vesselSelect"></select>
         </label>
+        <div class="meta">
+          <div>Treasury balance: <strong id="treasuryBalance">loading...</strong> NEAR</div>
+          <div>Deposit address (receive funds): <code id="depositAddress">-</code></div>
+          <div>Auto-approve threshold: <span id="autoApproveNear">-</span> NEAR</div>
+        </div>
+      </section>
+
+      <form id="payForm" class="form-grid" style="margin-top:0.75rem;">
         <label>
-          Vendor
-          <input id="vendorInput" placeholder="Acme Vendor" />
+          Vendor account (NEAR account id)
+          <input id="vendorInput" placeholder="alice.testnet" />
         </label>
         <label>
           Amount
-          <input id="amountInput" placeholder="500" />
+          <input id="amountInput" placeholder="1.5" />
         </label>
         <label>
           Currency
-          <input id="currencyInput" value="USD" />
+          <input id="currencyInput" value="NEAR" readonly />
         </label>
         <label>
           Description
           <textarea id="descriptionInput" placeholder="Monthly tooling invoice"></textarea>
         </label>
-        <button id="submitBtn" type="submit">Simulate Payment</button>
+        <button id="submitBtn" type="submit">Send Payment</button>
       </form>
       <p id="status" class="meta" style="margin-top:0.6rem;"></p>
       <section id="paymentsList" class="list" style="margin-top:0.6rem;"></section>

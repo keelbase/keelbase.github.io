@@ -7,7 +7,7 @@ import {
 import { requestRuntimeRefresh, subscribeRuntime } from "../keelbase-shared/client-runtime.js";
 
 const vesselSelect = document.getElementById("vesselSelect");
-const roleSelect = document.getElementById("roleSelect");
+const FIXED_ROLE = "liaison";
 const chatForm = document.getElementById("chatForm");
 const messageInput = document.getElementById("messageInput");
 const sendBtn = document.getElementById("sendBtn");
@@ -22,11 +22,6 @@ let vessels = [];
 let chatHistory = [];
 
 vesselSelect.addEventListener("change", () => {
-  syncActiveLabel();
-  loadChatMemory();
-});
-
-roleSelect.addEventListener("change", () => {
   syncActiveLabel();
   loadChatMemory();
 });
@@ -53,7 +48,7 @@ chatForm.addEventListener("submit", async (event) => {
 
   const message = messageInput.value.trim();
   const vesselSlug = vesselSelect.value;
-  const crewRole = roleSelect.value || "liaison";
+  const crewRole = FIXED_ROLE;
 
   if (!message || !vesselSlug) return;
 
@@ -182,15 +177,13 @@ function renderRuntimeState(state) {
 
 function syncActiveLabel() {
   const slug = vesselSelect.value || "none";
-  const role = roleSelect.value || "liaison";
-  activeLabel.textContent = `Active vessel: ${slug} - role: ${role}`;
+  activeLabel.textContent = `Active vessel: ${slug} - talking to: liaison`;
 }
 
 function getMemoryKey() {
   const slug = normalizeSlug(String(vesselSelect.value || ""));
-  const role = String(roleSelect.value || "").trim().toLowerCase();
-  if (!slug || !role) return "";
-  return `${LOCAL_MEMORY_PREFIX}:${slug}:${role}`;
+  if (!slug) return "";
+  return `${LOCAL_MEMORY_PREFIX}:${slug}:${FIXED_ROLE}`;
 }
 
 function loadChatMemory() {
