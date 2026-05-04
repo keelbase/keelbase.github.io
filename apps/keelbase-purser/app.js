@@ -13,6 +13,7 @@ const submitBtn = document.getElementById("submitBtn");
 const treasuryBalanceEl = document.getElementById("treasuryBalance");
 const depositAddressEl = document.getElementById("depositAddress");
 const autoApproveNearEl = document.getElementById("autoApproveNear");
+const treasuryNoteEl = document.getElementById("treasuryNote");
 
 vesselSelect.addEventListener("change", () => {
   loadTreasury().catch(() => {});
@@ -95,6 +96,7 @@ subscribeRuntime((state) => {
     treasuryBalanceEl.textContent = "-";
     depositAddressEl.textContent = "-";
     autoApproveNearEl.textContent = "-";
+    treasuryNoteEl.textContent = "";
   }
 });
 
@@ -102,6 +104,7 @@ async function loadTreasury() {
   const slug = vesselSelect.value;
   if (!slug) return;
   treasuryBalanceEl.textContent = "loading...";
+  treasuryNoteEl.textContent = "";
   try {
     const response = await fetch(`${CHAT_API_BASE_URL}/api/vessel/${encodeURIComponent(slug)}/treasury`);
     const payload = await response.json();
@@ -109,11 +112,14 @@ async function loadTreasury() {
       treasuryBalanceEl.textContent = String(payload.balanceNear ?? "0");
       depositAddressEl.textContent = String(payload.depositAddress ?? "-");
       autoApproveNearEl.textContent = String(payload.policyAutoApproveNear ?? "-");
+      treasuryNoteEl.textContent = payload.note ?? "";
     } else {
       treasuryBalanceEl.textContent = "unavailable";
+      treasuryNoteEl.textContent = "";
     }
   } catch {
     treasuryBalanceEl.textContent = "error";
+    treasuryNoteEl.textContent = "";
   }
 }
 
