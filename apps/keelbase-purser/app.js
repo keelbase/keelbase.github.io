@@ -50,14 +50,15 @@ payForm.addEventListener("submit", async (event) => {
     const payload = await response.json();
     if (payload?.ok && payload.payment) {
       const p = payload.payment;
+      const proposalInfo = payload.proposalId ? `proposal #${payload.proposalId}` : "";
       if (p.status === "executed") {
-        statusEl.textContent = `Payment executed. tx=${p.txHash || "n/a"} anchor=${payload.anchorProposalId || "n/a"}`;
+        statusEl.textContent = `Payment executed via ${proposalInfo}. Transfer sent from coordination contract.`;
         statusEl.className = "meta status-good";
       } else if (p.status === "pending_approval") {
-        statusEl.textContent = `Payment over auto-approve threshold. Awaiting council approval. anchor=${payload.anchorProposalId || "n/a"}`;
+        statusEl.textContent = `Payment ${proposalInfo} created. Awaiting council approval (over auto-approve threshold).`;
         statusEl.className = "meta status-warn";
       } else {
-        statusEl.textContent = `Payment status: ${p.status}. anchor=${payload.anchorProposalId || "n/a"}`;
+        statusEl.textContent = `Payment status: ${p.status}. ${proposalInfo}`;
         statusEl.className = "meta";
       }
     } else {
@@ -134,11 +135,8 @@ async function loadPayments() {
     const node = document.createElement("article");
     node.className = "item";
     const statusText = String(payment.status || "unknown");
-    const txLine = payment.txHash
-      ? `<div class="line2">tx: <code>${escapeHtml(String(payment.txHash))}</code></div>`
-      : "";
-    const anchorLine = payment.anchorProposalId
-      ? `<div class="line2">anchor proposal: ${escapeHtml(String(payment.anchorProposalId))}</div>`
+    const proposalLine = payment.proposalId
+      ? `<div class="line2">proposal #${escapeHtml(String(payment.proposalId))}</div>`
       : "";
     const errorLine = payment.error
       ? `<div class="line2 status-bad">error: ${escapeHtml(String(payment.error))}</div>`
@@ -150,8 +148,7 @@ async function loadPayments() {
       </div>
       <div class="line2">${escapeHtml(String(payment.amount || "0"))} ${escapeHtml(String(payment.currency || "NEAR"))}</div>
       <div class="line2">${escapeHtml(String(payment.description || ""))}</div>
-      ${txLine}
-      ${anchorLine}
+      ${proposalLine}
       ${errorLine}
     `;
     paymentsListEl.appendChild(node);
