@@ -22,6 +22,7 @@
         </label>
         <div class="meta">
           <div>Treasury balance: <strong id="treasuryBalance">loading...</strong> NEAR</div>
+          <div>USDC balance: <strong id="treasuryBalanceUsdc">-</strong> USDC</div>
           <div>Fund this address to add balance: <code id="depositAddress">-</code></div>
           <div>Auto-approve threshold: <span id="autoApproveNear">-</span> NEAR</div>
           <div id="treasuryNote" class="status-warn" style="margin-top:0.3rem; font-size:0.85em;"></div>
@@ -49,6 +50,20 @@
       </form>
       <p id="status" class="meta" style="margin-top:0.6rem;"></p>
       <section id="paymentsList" class="list" style="margin-top:0.6rem;"></section>
+
+      <details style="margin-top: 1rem;">
+        <summary class="meta" style="cursor:pointer;">Security Controls</summary>
+        <div class="form-grid" style="margin-top:0.5rem; gap:0.4rem;">
+          <label>
+            Approve counterparty
+            <input id="approveAccountInput" placeholder="alice.testnet" />
+          </label>
+          <button id="approveBtn" type="button">Approve</button>
+          <p id="approveStatus" class="meta" style="min-height:1.2em;"></p>
+          <button id="resetVelocityBtn" type="button" style="margin-top:0.5rem;">Reset Velocity Circuit</button>
+          <p id="velocityStatus" class="meta" style="min-height:1.2em;"></p>
+        </div>
+      </details>
     </section>
   </main>
   <script type="module" src="./app.js"></script>

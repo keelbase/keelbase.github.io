@@ -11,6 +11,7 @@ const paymentsListEl = document.getElementById("paymentsList");
 const payForm = document.getElementById("payForm");
 const submitBtn = document.getElementById("submitBtn");
 const treasuryBalanceEl = document.getElementById("treasuryBalance");
+const treasuryBalanceUsdcEl = document.getElementById("treasuryBalanceUsdc");
 const depositAddressEl = document.getElementById("depositAddress");
 const autoApproveNearEl = document.getElementById("autoApproveNear");
 const treasuryNoteEl = document.getElementById("treasuryNote");
@@ -48,7 +49,15 @@ payForm.addEventListener("submit", async (event) => {
       })
     });
     const payload = await response.json();
-    if (payload?.ok && payload.payment) {
+    if (response.status === 402 && payload?.requiresApproval) {
+      statusEl.textContent = `Vendor not yet approved. ${payload.howToApprove ?? "Use the Security Controls below to approve them first."}`;
+      statusEl.className = "meta status-warn";
+      const approveInput = document.getElementById("approveAccountInput");
+      if (approveInput) approveInput.value = vendor;
+    } else if (response.status === 403) {
+      statusEl.textContent = `Velocity circuit is open. Use the Security Controls below to reset it, or wait for automatic reset.`;
+      statusEl.className = "meta status-bad";
+    } else if (payload?.ok && payload.payment) {
       const p = payload.payment;
       const proposalInfo = payload.proposalId ? `proposal #${payload.proposalId}` : "";
       if (p.status === "executed") {
@@ -95,6 +104,7 @@ subscribeRuntime((state) => {
     loadPayments().catch(() => {});
   } else {
     treasuryBalanceEl.textContent = "-";
+    treasuryBalanceUsdcEl.textContent = "-";
     depositAddressEl.textContent = "-";
     autoApproveNearEl.textContent = "-";
     treasuryNoteEl.textContent = "";
@@ -105,21 +115,25 @@ async function loadTreasury() {
   const slug = vesselSelect.value;
   if (!slug) return;
   treasuryBalanceEl.textContent = "loading...";
+  treasuryBalanceUsdcEl.textContent = "loading...";
   treasuryNoteEl.textContent = "";
   try {
     const response = await fetch(`${CHAT_API_BASE_URL}/api/vessel/${encodeURIComponent(slug)}/treasury`);
     const payload = await response.json();
     if (payload?.ok) {
       treasuryBalanceEl.textContent = String(payload.balanceNear ?? "0");
+      treasuryBalanceUsdcEl.textContent = String(payload.balanceUsdc ?? "0");
       depositAddressEl.textContent = String(payload.depositAddress ?? "-");
       autoApproveNearEl.textContent = String(payload.policyAutoApproveNear ?? "-");
       treasuryNoteEl.textContent = payload.note ?? "";
     } else {
       treasuryBalanceEl.textContent = "unavailable";
+      treasuryBalanceUsdcEl.textContent = "unavailable";
       treasuryNoteEl.textContent = "";
     }
   } catch {
     treasuryBalanceEl.textContent = "error";
+    treasuryBalanceUsdcEl.textContent = "error";
     treasuryNoteEl.textContent = "";
   }
 }
@@ -157,5 +171,77 @@ async function loadPayments() {
     paymentsListEl.innerHTML = '<article class="item"><div class="line2">No payments yet.</div></article>';
   }
 }
+
+const approveAccountInput = document.getElementById("approveAccountInput");
+const approveBtn = document.getElementById("approveBtn");
+const approveStatus = document.getElementById("approveStatus");
+const resetVelocityBtn = document.getElementById("resetVelocityBtn");
+const velocityStatus = document.getElementById("velocityStatus");
+
+approveBtn.addEventListener("click", async () => {
+  const slug = vesselSelect.value;
+  const accountId = approveAccountInput.value.trim();
+  if (!slug || !accountId) {
+    approveStatus.textContent = "Select a vessel and enter an account to approve.";
+    approveStatus.className = "meta status-warn";
+    return;
+  }
+  approveBtn.disabled = true;
+  approveStatus.textContent = "Approving...";
+  approveStatus.className = "meta";
+  try {
+    const response = await fetch(`${CHAT_API_BASE_URL}/api/vessel/${encodeURIComponent(slug)}/approve-counterparty`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ accountId })
+    });
+    const payload = await response.json();
+    if (payload?.ok) {
+      approveStatus.textContent = `Approved ${accountId} as a counterparty.`;
+      approveStatus.className = "meta status-good";
+      approveAccountInput.value = "";
+    } else {
+      approveStatus.textContent = `Failed: ${payload?.error ?? "unknown error"}`;
+      approveStatus.className = "meta status-bad";
+    }
+  } catch (err) {
+    approveStatus.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+    approveStatus.className = "meta status-bad";
+  } finally {
+    approveBtn.disabled = false;
+  }
+});
+
+resetVelocityBtn.addEventListener("click", async () => {
+  const slug = vesselSelect.value;
+  if (!slug) {
+    velocityStatus.textContent = "Select a vessel first.";
+    velocityStatus.className = "meta status-warn";
+    return;
+  }
+  resetVelocityBtn.disabled = true;
+  velocityStatus.textContent = "Resetting...";
+  velocityStatus.className = "meta";
+  try {
+    const response = await fetch(`${CHAT_API_BASE_URL}/api/vessel/${encodeURIComponent(slug)}/reset-velocity`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}"
+    });
+    const payload = await response.json();
+    if (payload?.ok) {
+      velocityStatus.textContent = "Velocity circuit has been reset.";
+      velocityStatus.className = "meta status-good";
+    } else {
+      velocityStatus.textContent = `Failed: ${payload?.error ?? "unknown error"}`;
+      velocityStatus.className = "meta status-bad";
+    }
+  } catch (err) {
+    velocityStatus.textContent = `Error: ${err instanceof Error ? err.message : String(err)}`;
+    velocityStatus.className = "meta status-bad";
+  } finally {
+    resetVelocityBtn.disabled = false;
+  }
+});
 
 requestRuntimeRefresh();
