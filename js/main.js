@@ -21,6 +21,7 @@ const WINDOW_LAYOUT_KEY = "hedgey_window_layout_v1";
 const KEELBASE_FLOW_KEY = "keelbase_flow_phase_v1";
 const KEELBASE_FLOW_CHANNEL = "keelbase-flow-v1";
 const KEELBASE_RUNTIME_CHANNEL = "keelbase-runtime-v1";
+const HITOMI_ASSISTANT_VISIBLE_KEY = "keelbase_hitomi_assistant_visible_v1";
 const FLOW_PHASE_ONBOARDING = "onboarding";
 const FLOW_PHASE_BOOTSTRAP = "bootstrap";
 const FLOW_PHASE_FULL = "full";
@@ -112,7 +113,9 @@ async function boot(){
     localStorage.removeItem(WINDOW_LAYOUT_KEY);
   } catch {}
   await initKeelbaseWindowFlow(wm);
-  mountOriginalClippyAssistant();
+  if (shouldMountOriginalClippyAssistant()) {
+    mountOriginalClippyAssistant();
+  }
   // wm.restoreLayoutSession?.();
   // await initAgent1C({ wm });
 
@@ -368,6 +371,14 @@ function setKeelbaseFlowPhase(phase){
     localStorage.setItem(KEELBASE_FLOW_KEY, normalized);
   } catch {}
   return normalized;
+}
+
+function shouldMountOriginalClippyAssistant(){
+  try {
+    return localStorage.getItem(HITOMI_ASSISTANT_VISIBLE_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 function triggerTileAfterPaint(wm){
